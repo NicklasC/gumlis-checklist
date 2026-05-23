@@ -1,0 +1,35 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Editor / IDE configuration
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Flet build artifacts (Web PWA application builds)
+build/
+build_temp/
+dist/
+dist_clean/
+
+# Local database and user data directories
+data/
+*.json
+!package.json
+!manifest.json
+!*lock.json
+
+# Temporary scratch and development/test logs
+scratch/
