@@ -206,7 +206,7 @@ class TestChecklistApp(unittest.TestCase):
         self.assertEqual(card_content.controls[0].controls[0].value, "Jobb favoriter")
 
     def test_client_storage_repo_synchronous_web(self):
-        """Verify that ClientStorageRepository uses Flet client_storage synchronously on web."""
+        """Verify that ClientStorageRepository uses Emscripten IDBFS file operations on web."""
         import sys
         from src.repositories import client_storage_repo
         original_is_web = client_storage_repo.IS_WEB
@@ -214,19 +214,28 @@ class TestChecklistApp(unittest.TestCase):
         
         try:
             mock_page = MagicMock()
-            mock_page.client_storage = MagicMock()
-            mock_page.client_storage.get.return_value = '{"checklists": [], "common_groups": []}'
-            
             repo = client_storage_repo.ClientStorageRepository(page=mock_page)
             
-            data_str = repo._read_raw()
-            self.assertEqual(data_str, '{"checklists": [], "common_groups": []}')
-            mock_page.client_storage.get.assert_called_with("checklists_data")
+            # Temporary redirect the path to a test location
+            original_path = repo.desktop_file_path
+            import tempfile
+            temp_db = tempfile.mktemp()
+            repo.desktop_file_path = temp_db
             
-            test_content = '{"test": "data"}'
-            repo._write_raw(test_content)
-            mock_page.client_storage.set.assert_called_with("checklists_data", test_content)
-            
+            try:
+                test_content = '{"checklists": [], "common_groups": []}'
+                repo._write_raw(test_content)
+                
+                # Check that standard file system write happened
+                with open(temp_db, "r", encoding="utf-8") as f:
+                    self.assertEqual(f.read(), test_content)
+                    
+                # Check that standard file system read works
+                self.assertEqual(repo._read_raw(), test_content)
+            finally:
+                if os.path.exists(temp_db):
+                    os.remove(temp_db)
+                repo.desktop_file_path = original_path
         finally:
             client_storage_repo.IS_WEB = original_is_web
 

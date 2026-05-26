@@ -38,8 +38,8 @@ class TestGumliBrowserGUI(unittest.TestCase):
         self.browser.close()
         self.pw.stop()
 
-    def test_snabblistan_group_creation_and_deletion(self):
-        """Verify that Snabblistan tab plus button works, opens the dialog, and allows creating and deleting a favorite group."""
+    def test_snabblistan_favorite_addition_and_removal(self):
+        """Verify that Snabblistan tab allows adding and removing favorite items."""
         url = f"http://localhost:8000/gumlis-checklist/"
         print(f"Loading Gumli PWA at {url}...")
         self.page.goto(url)
@@ -63,60 +63,43 @@ class TestGumliBrowserGUI(unittest.TestCase):
         snabblistan_tab.first.click()
         self.page.wait_for_timeout(3000)
         
-        # 3. Locate and click the 'Ny favoritgrupp' plus button
-        print("Verifying and clicking the plus button...")
-        plus_button = self.page.locator("flt-semantics[role='button']").first
-        self.assertTrue(plus_button.count() > 0, "Plus button (role='button') not found in Snabblistan header!")
-        plus_button.click()
-        self.page.wait_for_timeout(3000)
+        # 3. Locate the new favorite text input field
+        print("Verifying the input field...")
+        input_field = self.page.locator("input[data-semantics-role='text-field']").or_(self.page.locator("input"))
+        self.assertTrue(input_field.count() > 0, "New favorite input text field was not found!")
         
-        # 4. Verify that the AlertDialog has successfully opened
-        print("Verifying that the AlertDialog is visible...")
-        dialog = self.page.locator("[role='alertdialog']")
-        self.assertTrue(dialog.count() > 0, "AlertDialog did not open after clicking the plus button!")
-        
-        dialog_title = self.page.locator("span:has-text('Skapa ny favoritgrupp')").or_(self.page.locator("[aria-label='Alert']"))
-        self.assertTrue(dialog_title.count() > 0, "Dialog title was not found!")
-        
-        # 5. Fill out the text input with a new group name
-        print("Entering a new group name...")
-        input_field = self.page.locator("input[data-semantics-role='text-field']")
-        self.assertTrue(input_field.count() > 0, "Dialog input text field was not found!")
+        # 4. Fill out the input field and press Enter
+        print("Entering a new favorite item name...")
+        test_item_name = "Testa GUI"
         input_field.first.focus()
         self.page.wait_for_timeout(1000)
-        
-        test_group_name = "Mina Testfavoriter"
-        self.page.keyboard.type(test_group_name)
+        self.page.keyboard.type(test_item_name)
         self.page.wait_for_timeout(1000)
+        self.page.keyboard.press("Enter")
+        print("Submitted the new favorite item.")
         
-        # 6. Click the 'Skapa' button to submit
-        print("Submitting the dialog...")
-        create_button = self.page.locator("flt-semantics[role='button']:has-text('Skapa')")
-        self.assertTrue(create_button.count() > 0, "'Skapa' button was not found in the dialog!")
-        create_button.click()
-        
-        print("Waiting for group list update...")
+        print("Waiting for favorite list update...")
         self.page.wait_for_timeout(4000)
         
-        # 7. Verify that the new group is successfully rendered on Snabblistan tab
-        print("Verifying that the new group is rendered on screen...")
-        group_header = self.page.locator(f"span:has-text('{test_group_name}')")
-        self.assertTrue(group_header.count() > 0, f"The newly created group '{test_group_name}' was not found in the DOM!")
+        # 5. Verify that the new favorite is successfully rendered on Snabblistan tab
+        print("Verifying that the new favorite is rendered on screen...")
+        favorite_item = self.page.locator(f"flt-semantics:has-text('{test_item_name}')").or_(self.page.locator(f"span:has-text('{test_item_name}')"))
+        self.assertTrue(favorite_item.count() > 0, f"The newly created favorite '{test_item_name}' was not found in the DOM!")
         
-        # 8. Delete the group using the 'Ta bort grupp' delete button
-        print("Locating delete button for the new group...")
-        delete_button = self.page.locator("[aria-label='Ta bort grupp']").last
-        self.assertTrue(delete_button.count() > 0, "Delete button ('Ta bort grupp') was not found in the group card!")
+        # 6. Delete the favorite using the 'Ta bort favorit' delete button
+        print("Locating delete button for the new favorite...")
+        delete_button = self.page.locator("[aria-label='Ta bort favorit']").last
+        self.assertTrue(delete_button.count() > 0, "Delete button ('Ta bort favorit') was not found in the favorites card!")
         
-        print("Deleting the group...")
+        print("Deleting the favorite...")
         delete_button.click()
         self.page.wait_for_timeout(3000)
         
-        # 9. Verify that the group was successfully deleted and is no longer in the DOM
-        print("Verifying that the group is removed from the DOM...")
-        group_header_after = self.page.locator(f"span:has-text('{test_group_name}')")
-        self.assertEqual(group_header_after.count(), 0, f"The group '{test_group_name}' still exists in the DOM after deletion!")
-        print("Success! Plus button, creation, and deletion GUI workflows verified successfully.")
+        # 7. Verify that the favorite was successfully deleted and is no longer in the DOM
+        print("Verifying that the favorite is removed from the DOM...")
+        favorite_item_after = self.page.locator(f"flt-semantics:has-text('{test_item_name}')").or_(self.page.locator(f"span:has-text('{test_item_name}')"))
+        self.assertEqual(favorite_item_after.count(), 0, f"The favorite '{test_item_name}' still exists in the DOM after deletion!")
+        print("Success! Favorite item addition and removal GUI workflows verified successfully.")
 
 if __name__ == "__main__":
     unittest.main()

@@ -22,8 +22,23 @@ def main():
         sys.exit(1)
         
     print("\n--- 1. Compiling Web App with Flet Publish ---")
+    
+    # Dynamically resolve flet executable path if not in system PATH
+    flet_cmd = "flet"
+    if not shutil.which("flet"):
+        scripts_dir = os.path.join(os.path.dirname(sys.executable), "Scripts")
+        flet_exe = os.path.join(scripts_dir, "flet.exe")
+        if os.path.exists(flet_exe):
+            flet_cmd = f'"{flet_exe}"'
+        else:
+            # User specific fallback
+            user_home = os.path.expanduser("~")
+            custom_flet = os.path.join(user_home, "AppData", "Local", "Python", "pythoncore-3.14-64", "Scripts", "flet.exe")
+            if os.path.exists(custom_flet):
+                flet_cmd = f'"{custom_flet}"'
+                
     publish_cmd = (
-        "flet publish src/main.py "
+        f"{flet_cmd} publish src/main.py "
         f"--distpath \"{deploy_dir}\" "
         "--base-url /gumlis-checklist/ "
         "--assets assets"

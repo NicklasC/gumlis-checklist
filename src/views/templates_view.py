@@ -112,14 +112,15 @@ class TemplatesView(ft.Container):
                                     color=TEXT_PRIMARY
                                 )
                             ),
-                            ft.GestureDetector(
-                                mouse_cursor=ft.MouseCursor.CLICK,
-                                on_tap=lambda e, val=item, grp=group: self._remove_item_from_group(val, grp),
-                                content=ft.Icon(
-                                    ft.Icons.CLOSE_ROUNDED,
-                                    size=11,
-                                    color=ft.Colors.RED_300
-                                )
+                            ft.IconButton(
+                                icon=ft.Icons.CLOSE_ROUNDED,
+                                icon_size=11,
+                                icon_color=ft.Colors.RED_300,
+                                tooltip="Ta bort favorit",
+                                width=18,
+                                height=18,
+                                padding=0,
+                                on_click=lambda e, val=item, grp=group: self._remove_item_from_group(val, grp)
                             )
                         ],
                         tight=True,

@@ -206,6 +206,10 @@ class MainView(ft.Container):
             **kwargs
         )
 
+    def initialize_data(self):
+        """Safely loads active checklist data after the page connection is established."""
+        self.view_checklist._load_data_and_clean()
+
     def _handle_mode_change(self, mode):
         """Switches global mode and triggers active view updates."""
         self.current_mode = mode
