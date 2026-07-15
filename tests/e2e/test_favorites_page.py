@@ -41,10 +41,11 @@ class FavoritesPageTests(BrowserTestCase):
         self.assertEqual(self.page.get_by_text("Ingen dubblett", exact=True).count(), 1)
 
     def test_deletes_new_favorite(self):
-        self.add_favorite("Ta bort favorit")
+        title = "Favorit som ska tas bort"
+        self.add_favorite(title)
         delete_buttons = self.page.locator('[aria-label="Ta bort favorit"]')
         delete_buttons.last.click()
-        self.page.get_by_text("Ta bort favorit", exact=True).wait_for(state="hidden")
+        self.page.get_by_text(title, exact=True).wait_for(state="hidden")
 
     def test_tapping_favorite_adds_checklist_item(self):
         self.page.get_by_role("button", name="Vattna blommorna", exact=True).click()

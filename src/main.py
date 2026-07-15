@@ -26,11 +26,18 @@ from src.views.main_view import MainView
 
 IS_WEB = sys.platform == 'emscripten'
 
+
+def web_log(message: str):
+    if IS_WEB:
+        import js
+        js.console.log(f"[GUMLI STARTUP] {message}")
+
 async def load_indexeddb_storage():
     """Mounts browser's IndexedDB to /home/data and loads persistent files asynchronously."""
     import js
     import pyodide
     import asyncio
+    web_log("starting IndexedDB mount")
     
     # Resolve the Emscripten FS object robustly (needed because in Web Workers,
     # FS might not be a direct property of the js global scope, but is on pyodide_js or js.pyodide)
@@ -101,11 +108,18 @@ async def load_indexeddb_storage():
     try:
         proxy = pyodide.ffi.create_proxy(sync_callback)
         FS.syncfs(True, proxy)
-        await future
+        # IndexedDB can occasionally leave syncfs without invoking its
+        # callback (for example after an interrupted browser shutdown). The
+        # app must still start; an empty/in-memory repository is safer than an
+        # indefinitely blocked loading screen.
+        await asyncio.wait_for(future, timeout=5)
+    except asyncio.TimeoutError:
+        print("[INDEXEDDB] syncfs load timed out; continuing without persisted data")
     except Exception as e:
         print(f"[INDEXEDDB] Error during syncfs: {e}")
 
 async def main(page: ft.Page):
+    web_log("main entered")
     # Configure main window properties (optimized for a modern mobile screen size by default)
     page.title = "Gumli"
     page.window.width = 410
@@ -121,22 +135,24 @@ async def main(page: ft.Page):
     
     # Apply custom premium theme (Emerald & Mint green Material 3 theme)
     page.theme = get_app_theme()
-    
+
     if IS_WEB:
         # Crucial: Load persistent files from IndexedDB to MEMFS before creating the repository/UI!
         await load_indexeddb_storage()
+        web_log("IndexedDB load finished")
     
     # Initialize client storage repository (perfect for local desktop and web PWAs!)
     repo = ClientStorageRepository(page=page)
+    web_log("repository initialized")
     
     # Mount core layout view
     app_layout = MainView(repo=repo)
     page.add(app_layout)
     page.update()
+    web_log("main view mounted")
     
     # Safely initialize database and load checklists after client_storage is fully synchronized
     app_layout.initialize_data()
     page.update()
-
 if __name__ == "__main__":
     ft.run(main)

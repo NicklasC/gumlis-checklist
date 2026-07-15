@@ -26,6 +26,9 @@ class IndexTemplateTests(unittest.TestCase):
     def test_registers_service_worker(self):
         self.assertIn("navigator.serviceWorker.register('flutter_service_worker.js')", self.html)
 
+    def test_cache_busts_python_app_archive(self):
+        self.assertIn("app.tar.gz?build=__APP_ARCHIVE_HASH__", self.html)
+
 
 class ServiceWorkerTemplateTests(unittest.TestCase):
     @classmethod

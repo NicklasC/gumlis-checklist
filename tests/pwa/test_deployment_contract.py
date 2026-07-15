@@ -31,6 +31,9 @@ class DeployScriptContractTests(unittest.TestCase):
     def test_restores_index_after_build(self):
         self.assertIn('"index.html"', self.script)
 
+    def test_versions_python_app_archive(self):
+        self.assertIn("add_app_archive_cache_buster", self.script)
+
     def test_checks_deploy_repository_status(self):
         self.assertIn('run_command("git status"', self.script)
 

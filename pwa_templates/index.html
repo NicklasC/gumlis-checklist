@@ -33,7 +33,7 @@
       pyodideUrl: "/pyodide/pyodide.js",
       webRenderer: "auto",
       fontFallbackBaseUrl: "assets/fonts/", // for Noto Emoji, use Google CDN
-      appPackageUrl: "app.tar.gz"
+      appPackageUrl: "app.tar.gz?build=__APP_ARCHIVE_HASH__"
     }
 
     flet.flutterAppLoaded = new Promise((resolve) => {

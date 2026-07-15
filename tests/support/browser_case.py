@@ -3,6 +3,7 @@ from __future__ import annotations
 import functools
 import os
 import threading
+import time
 import unittest
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
@@ -71,14 +72,23 @@ class BrowserTestCase(unittest.TestCase):
         self.context = self.browser.new_context(viewport=self.viewport)
         self.page = self.context.new_page()
         self.console_errors = []
+        self.console_messages = []
+        self.page_errors = []
+        self.failed_requests = []
         self.current_mode = "Privat"
         self.page.on("console", self._capture_console)
+        self.page.on("pageerror", lambda error: self.page_errors.append(str(error)))
+        self.page.on(
+            "requestfailed",
+            lambda request: self.failed_requests.append(f"{request.url}: {request.failure}"),
+        )
         self.boot()
 
     def tearDown(self):
         self.context.close()
 
     def _capture_console(self, message):
+        self.console_messages.append(f"{message.type}: {message.text}")
         if message.type == "error":
             self.console_errors.append(message.text)
 
@@ -88,15 +98,43 @@ class BrowserTestCase(unittest.TestCase):
             self.page.locator("[aria-label='Enable accessibility']")
         )
         accessibility.first.wait_for(state="visible", timeout=45_000)
+        deadline = time.monotonic() + 45
+        while not any("Python worker initialized" in entry for entry in self.console_messages):
+            if time.monotonic() >= deadline:
+                raise AssertionError("The Python worker did not initialize within 45 seconds")
+            self.page.wait_for_timeout(100)
+        self.page.wait_for_timeout(500)
         # Flutter deliberately positions this semantics activator outside the
-        # rendered canvas. Dispatching the DOM event mirrors an assistive-tech
-        # activation without requiring Playwright to find an on-screen box.
-        accessibility.first.dispatch_event("click")
+        # rendered canvas. Keyboard activation follows the path used by
+        # assistive technology in current Flutter web builds.
+        accessibility.first.focus()
+        accessibility.first.press("Enter")
         try:
             self.page.get_by_role("tab", name="Checklista").wait_for(state="visible", timeout=45_000)
         except Exception as error:
-            details = "\n".join(self.console_errors) or "no browser console errors"
-            raise AssertionError(f"The PWA did not expose its navigation semantics. Console:\n{details}") from error
+            state = self.page.evaluate(
+                """() => ({
+                    url: location.href,
+                    title: document.title,
+                    loadingClass: document.querySelector('#loading')?.className ?? null,
+                    loadingText: document.querySelector('#loading')?.textContent?.trim() ?? null,
+                    canvases: document.querySelectorAll('canvas').length,
+                    semantics: document.querySelectorAll('flt-semantics').length,
+                    placeholder: document.querySelectorAll('flt-semantics-placeholder').length,
+                    pyodideConfigured: Boolean(window.flet?.pyodide),
+                    pythonModuleName: window.flet?.pythonModuleName ?? null
+                })"""
+            )
+            details = "\n".join(
+                [
+                    f"state: {state}",
+                    *(f"log: {entry}" for entry in self.console_messages[-100:]),
+                    *(f"console: {entry}" for entry in self.console_errors),
+                    *(f"page: {entry}" for entry in self.page_errors),
+                    *(f"request: {entry}" for entry in self.failed_requests),
+                ]
+            ) or "no browser, page, or request errors"
+            raise AssertionError(f"The PWA did not expose its navigation semantics. Diagnostics:\n{details}") from error
         # The Flutter semantics tree can be visible just before Pyodide has
         # finished attaching Python event handlers.
         self.page.wait_for_timeout(500)

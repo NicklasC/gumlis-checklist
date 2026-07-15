@@ -2,6 +2,27 @@ import subprocess
 import shutil
 import os
 import sys
+import hashlib
+
+
+APP_ARCHIVE_HASH_PLACEHOLDER = "__APP_ARCHIVE_HASH__"
+
+
+def add_app_archive_cache_buster(index_path, archive_path):
+    """Tie the Python archive URL to its contents so existing PWAs fetch new code."""
+    with open(archive_path, "rb") as archive_file:
+        archive_hash = hashlib.sha256(archive_file.read()).hexdigest()[:16]
+
+    with open(index_path, "r", encoding="utf-8") as index_file:
+        index_html = index_file.read()
+
+    if APP_ARCHIVE_HASH_PLACEHOLDER not in index_html:
+        raise RuntimeError("index.html is missing the app archive hash placeholder")
+
+    with open(index_path, "w", encoding="utf-8", newline="\n") as index_file:
+        index_file.write(index_html.replace(APP_ARCHIVE_HASH_PLACEHOLDER, archive_hash))
+
+    print(f"Versioned app.tar.gz with build hash {archive_hash}.")
 
 def run_command(cmd, cwd=None):
     print(f"Executing: {cmd}")
@@ -66,6 +87,10 @@ def main():
     shutil.copy2(
         os.path.join(templates_dir, "index.html"),
         os.path.join(deploy_dir, "index.html")
+    )
+    add_app_archive_cache_buster(
+        os.path.join(deploy_dir, "index.html"),
+        os.path.join(deploy_dir, "app.tar.gz"),
     )
     
     # Restore favicon.png
