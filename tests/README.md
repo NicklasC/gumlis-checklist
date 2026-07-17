@@ -8,6 +8,10 @@ Testerna är grupperade efter ansvar så att ett fel blir lätt att lokalisera:
 - `pwa/` – manifest, mallar, byggartefakter och kontraktet mellan de två repona.
 - `support/` – delade fixtures, sökvägar och den MIME-korrekta lokala PWA-servern.
 
+## Testfallsöversikt
+
+[`TEST_CASE_OVERVIEW.md`](../TEST_CASE_OVERVIEW.md) ger en människa en snabb och lättbegriplig överblick över vad varje automatiserat test gör. Dokumentet måste uppdateras samtidigt som ett test läggs till, tas bort eller ändras. Ändra även testantalen i översikten när testsvitens storlek förändras.
+
 ## Installera testberoenden
 
 ```powershell
