@@ -5,9 +5,6 @@ from src.core.theme import (
     BG_COLOR, MINT_GREEN, EMERALD_GREEN, TEXT_PRIMARY, TEXT_MUTED, TEXT_SECONDARY, border_all
 )
 from src.views.checklist_view import ChecklistView
-from src.views.templates_view import TemplatesView
-from src.views.history_view import HistoryView
-from src.views.later_view import LaterView
 
 def _get_swedish_date() -> str:
     now = datetime.now()
@@ -104,23 +101,12 @@ class MainView(ft.Container):
         self.repo = repo
         self.current_mode = "Att göra" # Global mode state: "Att göra" (Privat) or "Jobb"
         
-        # Pre-initialize sub-views with reference to parent to read current_mode
+        # Only the initial checklist is built during startup. Secondary views
+        # are imported and constructed on first navigation, then reused.
         self.view_checklist = ChecklistView(repo=self.repo, main_view=self)
-        self.view_templates = TemplatesView(
-            repo=self.repo,
-            on_template_added_to_active=self._handle_template_added,
-            main_view=self
-        )
-        self.view_history = HistoryView(
-            repo=self.repo,
-            on_item_restored=self._handle_item_restored,
-            main_view=self
-        )
-        self.view_later = LaterView(
-            repo=self.repo,
-            on_item_promoted=self._handle_item_promoted,
-            main_view=self
-        )
+        self.view_templates = None
+        self.view_history = None
+        self.view_later = None
         
         # Container to hold the active view
         self.content_area = ft.Container(
@@ -218,33 +204,56 @@ class MainView(ft.Container):
     def _handle_nav_change(self, e):
         """Switches screens and reloads their respective data for reactive UI synchronization."""
         idx = int(e.data)
-        
-        if idx == 0:
-            self.view_checklist._load_data_and_clean()
-            self.content_area.content = self.view_checklist
-        elif idx == 1:
-            self.view_templates._load_data()
-            self.content_area.content = self.view_templates
-        elif idx == 2:
-            self.view_history._load_data()
-            self.content_area.content = self.view_history
-        elif idx == 3:
-            self.view_later._load_data()
-            self.content_area.content = self.view_later
-            
+        view = self._ensure_view(idx)
+        self._reload_view(idx, view)
+        self.content_area.content = view
         self.content_area.update()
+
+    def _ensure_view(self, idx):
+        """Construct a destination at most once, when it is first requested."""
+        if idx == 0:
+            return self.view_checklist
+        if idx == 1:
+            if self.view_templates is None:
+                from src.views.templates_view import TemplatesView
+                self.view_templates = TemplatesView(
+                    repo=self.repo,
+                    on_template_added_to_active=self._handle_template_added,
+                    main_view=self,
+                )
+            return self.view_templates
+        if idx == 2:
+            if self.view_history is None:
+                from src.views.history_view import HistoryView
+                self.view_history = HistoryView(
+                    repo=self.repo,
+                    on_item_restored=self._handle_item_restored,
+                    main_view=self,
+                )
+            return self.view_history
+        if idx == 3:
+            if self.view_later is None:
+                from src.views.later_view import LaterView
+                self.view_later = LaterView(
+                    repo=self.repo,
+                    on_item_promoted=self._handle_item_promoted,
+                    main_view=self,
+                )
+            return self.view_later
+        raise ValueError(f"Unknown navigation destination: {idx}")
+
+    @staticmethod
+    def _reload_view(idx, view):
+        if idx == 0:
+            view._load_data_and_clean()
+        else:
+            view._load_data()
 
     def _refresh_active_view(self):
         """Triggers data load and UI update for whatever screen is currently visible."""
         idx = self.nav_bar.selected_index
-        if idx == 0:
-            self.view_checklist._load_data_and_clean()
-        elif idx == 1:
-            self.view_templates._load_data()
-        elif idx == 2:
-            self.view_history._load_data()
-        elif idx == 3:
-            self.view_later._load_data()
+        view = self._ensure_view(idx)
+        self._reload_view(idx, view)
         self.content_area.update()
 
     def _handle_template_added(self, title: str, group_name: str):

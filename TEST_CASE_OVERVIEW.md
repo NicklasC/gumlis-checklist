@@ -14,11 +14,11 @@ Målet med dokumentet är att en människa snabbt och enkelt ska få en övergri
 
 | Område | Antal | Innehåll |
 |---|---:|---|
-| Enhetstester | 56 | Datamodeller, lagring, migrering och historikregler |
-| Komponenttester | 78 | Vyernas och komponenternas logik utan webbläsare |
-| PWA- och distributionstester | 48 | Manifest, byggfiler, sidmallar och de två repona |
-| GUI/E2E-tester | 67 | Verkliga användarflöden i Chromium |
-| **Totalt** | **249** | |
+| Enhetstester | 62 | Datamodeller, lagring, migrering och historikregler |
+| Komponenttester | 86 | Vyernas och komponenternas logik utan webbläsare |
+| PWA- och distributionstester | 62 | Manifest, byggfiler, sidmallar och de två repona |
+| GUI/E2E-tester | 70 | Verkliga användarflöden i Chromium |
+| **Totalt** | **280** | |
 
 GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den byggda appen och deploy-repot finns lokalt; annars markeras de som överhoppade.
 
@@ -66,7 +66,18 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_does_not_duplicate_default_favorite` | En befintlig standardfavorit läggs inte in en gång till. |
 | `test_current_data_stays_semantically_equal` | Redan aktuell data ändras inte innehållsmässigt av migreringen. |
 
-### Webbläsarens lokala lagring — `tests/unit/test_client_storage_repository.py`
+### Direkt browserlagring och säker migrering — `tests/unit/test_browser_storage.py`
+
+| Testfall | Vad testet kontrollerar |
+|---|---|
+| `test_direct_value_skips_legacy_loader` | En befintlig direkt IndexedDB-post används utan att det gamla filsystemet startas. |
+| `test_confirmed_legacy_value_is_migrated` | Bekräftad gammal IDBFS-data kopieras till den nya direkta lagringen. |
+| `test_confirmed_empty_legacy_store_enables_new_writes` | En kontrollerad tom gammal lagring tillåter att nya data sparas direkt. |
+| `test_unavailable_legacy_store_never_persists_defaults` | Standarddata skrivs inte om den gamla lagringen inte kunnat kontrolleras. |
+| `test_migrated_session_writes_directly_afterward` | Efter migreringen går efterföljande skrivningar direkt till den nya lagringen. |
+| `test_direct_database_failure_keeps_legacy_data_read_only` | Vid fel i nya IndexedDB visas gamla data utan att något skrivs över. |
+
+### Lokal repositorylagring — `tests/unit/test_client_storage_repository.py`
 
 | Testfall | Vad testet kontrollerar |
 |---|---|
@@ -117,6 +128,19 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_mode_change_refreshes_active_view` | Den öppna sidan uppdateras när läget ändras. |
 | `test_navigation_has_four_destinations` | Huvudnavigeringen har fyra mål. |
 | `test_navigation_labels_are_stable` | Flikarna heter Checklista, Snabblistan, Historik och Senare i rätt ordning. |
+| `test_secondary_views_are_not_created_during_startup` | Sekundära vyer byggs inte under appens start. |
+| `test_secondary_view_is_created_on_first_request` | En sekundär vy skapas först när användaren öppnar den. |
+| `test_lazily_created_view_is_reused` | En lazy-loadad vy återanvänds i stället för att byggas om. |
+| `test_unknown_navigation_destination_is_rejected` | Ett okänt navigationsmål avvisas tydligt. |
+
+### Tidigt appskal — `tests/components/test_startup_view.py`
+
+| Testfall | Vad testet kontrollerar |
+|---|---|
+| `test_shell_matches_main_navigation_structure` | Laddningsskalet visar samma fyra navigationsmål som huvudvyn. |
+| `test_shell_navigation_is_not_interactive` | Skalet kan inte användas innan sparade data är redo. |
+| `test_shell_identifies_application` | Namnet Gumli visas direkt i appskalet. |
+| `test_shell_has_loading_feedback` | Skalet visar både aktivitet och begriplig laddningstext. |
 
 ### Lägesväljaren — `tests/components/test_mode_selector.py`
 
@@ -241,6 +265,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_all_manifest_icons_exist` | Varje ikon som manifestet hänvisar till finns på disk. |
 | `test_all_manifest_icons_are_png` | Alla manifestikoner anges som PNG-filer. |
 | `test_maskable_icons_declare_purpose` | Maskerbara ikoner är korrekt märkta för olika enheters ikonformer. |
+| `test_install_icons_stay_within_size_budget` | Installationsikonerna håller den fastställda storleksbudgeten. |
 
 ### HTML- och service worker-mallar — `tests/pwa/test_templates.py`
 
@@ -249,15 +274,24 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_uses_github_pages_base_path` | HTML-mallen använder `/gumlis-checklist/` som bassökväg. |
 | `test_sets_flet_entrypoint_base` | Flets startpunkt använder rätt publiceringssökväg. |
 | `test_sets_flet_asset_base` | Flets resurser hämtas från rätt publiceringssökväg. |
+| `test_uses_flet_runtime_cdn` | Den fungerande Flet-runtimeversionen hämtas från dess CDN. |
 | `test_references_manifest` | HTML-mallen länkar till PWA-manifestet. |
 | `test_references_favicon` | HTML-mallen länkar till faviconen. |
 | `test_registers_service_worker` | HTML-mallen registrerar appens service worker. |
 | `test_cache_busts_python_app_archive` | Python-paketets URL innehåller en platshållare för byggversion. |
+| `test_exposes_startup_timing_marks` | Startsidan erbjuder permanenta prestandamätpunkter. |
+| `test_startup_console_logging_is_opt_in` | Starttider skrivs bara i konsolen när diagnostik uttryckligen aktiveras. |
+| `test_marks_flutter_ready` | Tidpunkten då Flutter är redo registreras. |
 | `test_has_versioned_cache_name` | Service workern använder ett versionshanterat cachenamn. |
 | `test_has_install_handler` | Service workern hanterar installation. |
 | `test_has_activate_handler` | Service workern hanterar aktivering. |
 | `test_has_fetch_handler` | Service workern hanterar nätverksanrop. |
-| `test_fetch_handler_returns_network_response` | Nätverkssvaret lämnas tillbaka till webbläsaren. |
+| `test_precaches_lightweight_app_shell` | Ett litet appskal förhandslagras utan att blockera installationen på stora filer. |
+| `test_removes_old_versioned_caches` | Gamla Gumli-cacher rensas när en ny version aktiveras. |
+| `test_navigation_uses_network_first` | Navigation söker en ny version online men kan falla tillbaka på cache. |
+| `test_static_resources_use_cache_first` | Versionsbundna resurser hämtas från cache före nätverket. |
+| `test_only_trusted_runtime_cdns_are_cacheable` | Bara Flets uttryckligt betrodda runtimevärdar får cachas över domängränsen. |
+| `test_only_caches_successful_responses` | Felaktiga nätverkssvar sparas inte i cachen. |
 
 ### Färdigbyggd PWA — `tests/pwa/test_build_output.py`
 
@@ -270,6 +304,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_flet_javascript_bundle_exists` | Den byggda appen innehåller Flets JavaScript-paket. |
 | `test_flet_wasm_bundle_exists` | Den byggda appen innehåller Flets WebAssembly-paket. |
 | `test_python_worker_exists` | Den byggda appen innehåller Python-arbetaren. |
+| `test_python_host_forwards_startup_marks` | Den byggda Pythonvärden skickar worker-mätpunkter till startsidan. |
 | `test_built_manifest_is_valid_json` | Det byggda manifestet är giltig JSON och avser Gumli. |
 | `test_built_index_uses_expected_base` | Den byggda startsidan använder `/gumlis-checklist/`. |
 | `test_built_index_uses_hashed_python_archive_url` | Startsidan hänvisar till en versionsmärkt Python-fil. |
@@ -289,6 +324,9 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_restores_service_worker_after_build` | Deployskriptet återställer den anpassade service workern efter bygget. |
 | `test_restores_index_after_build` | Deployskriptet återställer den anpassade startsidan efter bygget. |
 | `test_versions_python_app_archive` | Deployskriptet versionsmärker Python-paketets URL. |
+| `test_versions_both_index_and_service_worker` | Samma byggversion används i startsidan och service workern. |
+| `test_prunes_production_unneeded_debug_artifacts` | Källkartor, symbolfiler och oanvänd diagnostik tas bort från produktionsbygget. |
+| `test_bridges_worker_startup_marks_to_main_page` | Deployskriptet installerar bryggan för Pythonworkerns mätpunkter. |
 | `test_checks_deploy_repository_status` | Deployskriptet kontrollerar deploy-repots Git-status. |
 | `test_source_repository_has_git_metadata` | Källkodsrepot är ett eget Git-repo. |
 | `test_deploy_repository_has_git_metadata` | Deploy-repot är ett eget Git-repo. |
@@ -419,4 +457,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_manifest_is_reachable` | Webbläsaren kan hämta informationen som behövs för att installera Gumli. | Appinstallation och appidentitet är beroende av manifestet. |
 | `test_service_worker_is_reachable` | Webbläsaren kan hämta appens service worker. | PWA-funktioner och säker uppdatering kräver att filen går att nå. |
 | `test_service_worker_registers_in_browser` | Webbläsaren lyckas aktivera Gumlis service worker. | Appen ska fungera som PWA, inte bara som en vanlig webbsida. |
+| `test_startup_milestones_are_recorded` | Diagnostiken registrerar hela kedjan från HTML-start till synlig checklista. | Prestandaförbättringar måste kunna mätas utan gissningar. |
+| `test_runtime_assets_are_cached_after_warm_reload` | Efter en varm omladdning finns Flutter och Pyodide i versionscachen. | Återkommande starter ska inte vara beroende av nya stora hämtningar. |
+| `test_warm_app_starts_offline` | Användaren kan öppna en tidigare startad app helt utan nätverk. | PWA-cachen måste fungera i praktiken, inte bara vara registrerad. |
 | `test_app_boots_without_console_errors` | Användaren kan öppna den publicerade appen utan startfel. | Ett rent uppstartsförlopp minskar risken för tom sida och trasiga funktioner. |

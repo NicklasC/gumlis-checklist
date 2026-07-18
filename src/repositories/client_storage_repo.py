@@ -8,6 +8,7 @@ import flet as ft
 from src.core.config import JSON_DB_PATH, HISTORY_RETENTION_DAYS
 from src.core.repository import BaseRepository
 from src.models.checklist import Checklist, CommonGroup, ChecklistsData, ChecklistItem
+from src.repositories import browser_storage
 
 import sys
 
@@ -37,19 +38,7 @@ class ClientStorageRepository(BaseRepository):
     def _read_raw(self) -> Optional[str]:
         """Reads raw JSON string from either browser client_storage (web) or local file (desktop)."""
         if IS_WEB:
-            # Reads directly from the persistent IDBFS virtual filesystem (already loaded at startup!)
-            web_log(f"[REPOSITORIES] Reading persistent virtual file. Path: {self.desktop_file_path}")
-            if os.path.exists(self.desktop_file_path):
-                try:
-                    with open(self.desktop_file_path, "r", encoding="utf-8") as f:
-                        content = f.read()
-                        web_log(f"[REPOSITORIES] Persistent virtual file read success. Length: {len(content)}")
-                        return content
-                except Exception as e:
-                    web_log(f"[REPOSITORIES] Error reading persistent virtual file: {e}")
-            else:
-                web_log("[REPOSITORIES] Persistent virtual file does not exist yet.")
-            return None
+            return browser_storage.read_cached()
         else:
             if os.path.exists(self.desktop_file_path):
                 try:
@@ -63,66 +52,7 @@ class ClientStorageRepository(BaseRepository):
     def _write_raw(self, content: str) -> None:
         """Writes raw JSON string to either browser client_storage (web) or local file (desktop)."""
         if IS_WEB:
-            # Writes directly to the persistent IDBFS virtual filesystem
-            try:
-                web_log(f"[REPOSITORIES] Writing persistent virtual file. Path: {self.desktop_file_path}")
-                os.makedirs(os.path.dirname(self.desktop_file_path), exist_ok=True)
-                with open(self.desktop_file_path, "w", encoding="utf-8") as f:
-                    f.write(content)
-                web_log("[REPOSITORIES] Persistent virtual file write success.")
-                
-                # Asynchronously sync the written file from MEMFS back to IndexedDB (fire-and-forget!)
-                import js
-                import pyodide
-                
-                # Resolve the Emscripten FS object robustly
-                FS = None
-                try:
-                    import pyodide_js
-                    if hasattr(pyodide_js, "FS"):
-                        FS = pyodide_js.FS
-                except ImportError:
-                    pass
-                    
-                if not FS:
-                    try:
-                        if hasattr(js, "pyodide") and hasattr(js.pyodide, "FS"):
-                            FS = js.pyodide.FS
-                    except Exception:
-                        pass
-                        
-                if not FS:
-                    try:
-                        if hasattr(js, "FS"):
-                            FS = js.FS
-                    except Exception:
-                        pass
-                        
-                if not FS:
-                    web_log("[REPOSITORIES] Critical Error: Emscripten FS object could not be resolved for syncfs write!")
-                    return
-                
-                def sync_write_callback(err):
-                    if err:
-                        web_log(f"[REPOSITORIES] syncfs write failed: {err}")
-                    else:
-                        web_log("[REPOSITORIES] syncfs write successfully saved to IndexedDB!")
-                
-                proxy = pyodide.ffi.create_proxy(sync_write_callback)
-                FS.syncfs(False, proxy)
-                
-            except Exception as e:
-                web_log(f"[REPOSITORIES] Error writing persistent virtual file / syncfs: {e}")
-                try:
-                    import traceback
-                    traceback.print_exc()
-                    import pyodide
-                    if isinstance(e, pyodide.ffi.JsException):
-                        web_log(f"[REPOSITORIES] JS Error Name: {e.name}")
-                        web_log(f"[REPOSITORIES] JS Error Message: {e.message}")
-                        web_log(f"[REPOSITORIES] JS Error Stack: {e.stack}")
-                except Exception as e2:
-                    web_log(f"[REPOSITORIES] Failed to extract JS error details: {e2}")
+            browser_storage.write_cached(content)
         else:
             try:
                 os.makedirs(os.path.dirname(self.desktop_file_path), exist_ok=True)
@@ -345,4 +275,3 @@ class ClientStorageRepository(BaseRepository):
                 self._save(data)
         except Exception as e:
             logger.error(f"Error purging expired history: {e}")
-

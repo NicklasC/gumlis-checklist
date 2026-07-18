@@ -17,6 +17,9 @@ class IndexTemplateTests(unittest.TestCase):
     def test_sets_flet_asset_base(self):
         self.assertIn('flet.assetBase="/gumlis-checklist/"', self.html)
 
+    def test_uses_flet_runtime_cdn(self):
+        self.assertIn("flet.noCdn=false", self.html)
+
     def test_references_manifest(self):
         self.assertIn("manifest.json", self.html)
 
@@ -29,6 +32,16 @@ class IndexTemplateTests(unittest.TestCase):
     def test_cache_busts_python_app_archive(self):
         self.assertIn("app.tar.gz?build=__APP_ARCHIVE_HASH__", self.html)
 
+    def test_exposes_startup_timing_marks(self):
+        self.assertIn("window.gumliStartup", self.html)
+        self.assertIn("performance.mark(`gumli:${name}`)", self.html)
+
+    def test_startup_console_logging_is_opt_in(self):
+        self.assertIn("get('debug-startup') === '1'", self.html)
+
+    def test_marks_flutter_ready(self):
+        self.assertIn("mark('flutter-app-ready')", self.html)
+
 
 class ServiceWorkerTemplateTests(unittest.TestCase):
     @classmethod
@@ -36,7 +49,8 @@ class ServiceWorkerTemplateTests(unittest.TestCase):
         cls.worker = (PWA_TEMPLATES / "flutter_service_worker.js").read_text(encoding="utf-8")
 
     def test_has_versioned_cache_name(self):
-        self.assertIn("CACHE_NAME", self.worker)
+        self.assertIn("const BUILD_VERSION = '__APP_ARCHIVE_HASH__'", self.worker)
+        self.assertIn("const CACHE_NAME = `${CACHE_PREFIX}${BUILD_VERSION}`", self.worker)
 
     def test_has_install_handler(self):
         self.assertIn("addEventListener('install'", self.worker)
@@ -47,5 +61,23 @@ class ServiceWorkerTemplateTests(unittest.TestCase):
     def test_has_fetch_handler(self):
         self.assertIn("addEventListener('fetch'", self.worker)
 
-    def test_fetch_handler_returns_network_response(self):
-        self.assertIn("event.respondWith(fetch(event.request))", self.worker)
+    def test_precaches_lightweight_app_shell(self):
+        self.assertIn("cache.addAll(APP_SHELL)", self.worker)
+
+    def test_removes_old_versioned_caches(self):
+        self.assertIn("name !== CACHE_NAME", self.worker)
+        self.assertIn("caches.delete(name)", self.worker)
+
+    def test_navigation_uses_network_first(self):
+        self.assertIn("event.respondWith(networkFirst(request))", self.worker)
+
+    def test_static_resources_use_cache_first(self):
+        self.assertIn("event.respondWith(cacheFirst(request))", self.worker)
+
+    def test_only_trusted_runtime_cdns_are_cacheable(self):
+        self.assertIn("RUNTIME_CDN_HOSTS", self.worker)
+        self.assertIn("cdn.jsdelivr.net", self.worker)
+        self.assertIn("www.gstatic.com", self.worker)
+
+    def test_only_caches_successful_responses(self):
+        self.assertIn("if (response.ok)", self.worker)

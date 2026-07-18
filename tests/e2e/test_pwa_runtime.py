@@ -34,5 +34,37 @@ class PwaRuntimeTests(BrowserTestCase):
         )
         self.assertTrue(registration)
 
+    def test_startup_milestones_are_recorded(self):
+        marks = self.page.evaluate("() => window.gumliStartup?.snapshot()")
+        self.assertIsInstance(marks, dict)
+        for name in (
+            "html-start",
+            "flutter-app-ready",
+            "python-main-entered",
+            "app-shell-visible",
+            "storage-ready",
+            "checklist-visible",
+        ):
+            with self.subTest(mark=name):
+                self.assertIn(name, marks)
+
+    def test_runtime_assets_are_cached_after_warm_reload(self):
+        self.boot()
+        cached_urls = self.page.evaluate(
+            """async () => {
+                const names = (await caches.keys()).filter(name => name.startsWith('gumli-'));
+                const requests = await Promise.all(names.map(async name => (await caches.open(name)).keys()));
+                return requests.flat().map(request => request.url);
+            }"""
+        )
+        self.assertTrue(any(url.endswith(("main.dart.wasm", "main.dart.js")) for url in cached_urls))
+        self.assertTrue(any(url.endswith("pyodide.asm.wasm") for url in cached_urls))
+
+    def test_warm_app_starts_offline(self):
+        self.boot()
+        self.context.set_offline(True)
+        self.boot()
+        self.assertTrue(self.page.get_by_text("Gumli", exact=True).is_visible())
+
     def test_app_boots_without_console_errors(self):
         self.assert_no_unexpected_console_errors()

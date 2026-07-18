@@ -34,3 +34,23 @@ class MainViewTests(unittest.TestCase):
     def test_navigation_labels_are_stable(self):
         labels = [destination.label for destination in self.make_view().nav_bar.destinations]
         self.assertEqual(labels, ["Checklista", "Snabblistan", "Historik", "Senare"])
+
+    def test_secondary_views_are_not_created_during_startup(self):
+        view = self.make_view()
+        self.assertIsNone(view.view_templates)
+        self.assertIsNone(view.view_history)
+        self.assertIsNone(view.view_later)
+
+    def test_secondary_view_is_created_on_first_request(self):
+        view = self.make_view()
+        created = view._ensure_view(1)
+        self.assertIs(created, view.view_templates)
+        self.assertIsNotNone(created)
+
+    def test_lazily_created_view_is_reused(self):
+        view = self.make_view()
+        self.assertIs(view._ensure_view(2), view._ensure_view(2))
+
+    def test_unknown_navigation_destination_is_rejected(self):
+        with self.assertRaises(ValueError):
+            self.make_view()._ensure_view(99)

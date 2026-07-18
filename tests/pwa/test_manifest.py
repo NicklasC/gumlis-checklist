@@ -44,3 +44,9 @@ class ManifestTests(unittest.TestCase):
     def test_maskable_icons_declare_purpose(self):
         maskable = [icon for icon in self.manifest["icons"] if "maskable" in icon["src"]]
         self.assertTrue(all(icon.get("purpose") == "maskable" for icon in maskable))
+
+    def test_install_icons_stay_within_size_budget(self):
+        for icon in self.manifest["icons"]:
+            with self.subTest(icon=icon["src"]):
+                icon_path = PWA_TEMPLATES / icon["src"]
+                self.assertLess(icon_path.stat().st_size, 350_000)

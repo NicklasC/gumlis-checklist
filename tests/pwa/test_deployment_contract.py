@@ -34,6 +34,20 @@ class DeployScriptContractTests(unittest.TestCase):
     def test_versions_python_app_archive(self):
         self.assertIn("add_app_archive_cache_buster", self.script)
 
+    def test_versions_both_index_and_service_worker(self):
+        function_call = self.script.rsplit("add_app_archive_cache_buster(", 1)[-1]
+        self.assertIn('"index.html"', function_call)
+        self.assertIn('"flutter_service_worker.js"', function_call)
+
+    def test_prunes_production_unneeded_debug_artifacts(self):
+        self.assertIn("prune_debug_artifacts(deploy_dir)", self.script)
+        self.assertIn('filename.endswith((".symbols", ".map"))', self.script)
+        self.assertIn('relative_path == "assets/NOTICES"', self.script)
+
+    def test_bridges_worker_startup_marks_to_main_page(self):
+        self.assertIn("add_python_startup_bridge", self.script)
+        self.assertIn("__gumli_startup__:", self.script)
+
     def test_checks_deploy_repository_status(self):
         self.assertIn('run_command("git status"', self.script)
 

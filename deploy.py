@@ -8,19 +8,54 @@ import hashlib
 APP_ARCHIVE_HASH_PLACEHOLDER = "__APP_ARCHIVE_HASH__"
 
 
-def add_app_archive_cache_buster(index_path, archive_path):
-    """Tie the Python archive URL to its contents so existing PWAs fetch new code."""
+def prune_debug_artifacts(deploy_dir):
+    """Remove build diagnostics that are never requested by the production app."""
+    removed = []
+    for root, _, filenames in os.walk(deploy_dir):
+        for filename in filenames:
+            path = os.path.join(root, filename)
+            relative_path = os.path.relpath(path, deploy_dir).replace("\\", "/")
+            if filename.endswith((".symbols", ".map")) or relative_path == "assets/NOTICES":
+                os.remove(path)
+                removed.append(relative_path)
+    print(f"Removed {len(removed)} production-unneeded debug artifacts.")
+    return removed
+
+
+def add_python_startup_bridge(python_js_path):
+    """Forward Python worker timing marks to the main page diagnostics object."""
+    with open(python_js_path, "r", encoding="utf-8") as python_file:
+        source = python_file.read()
+
+    marker = "    app.worker.onmessage = (event) => {\n"
+    bridge = (
+        marker
+        + "        if (typeof event.data === \"string\" && event.data.startsWith(\"__gumli_startup__:\")) {\n"
+        + "            window.gumliStartup?.mark(event.data.substring(\"__gumli_startup__:\".length));\n"
+        + "            return;\n"
+        + "        }\n"
+    )
+    if marker not in source:
+        raise RuntimeError("python.js worker message handler could not be patched")
+
+    with open(python_js_path, "w", encoding="utf-8", newline="\n") as python_file:
+        python_file.write(source.replace(marker, bridge, 1))
+
+
+def add_app_archive_cache_buster(template_paths, archive_path):
+    """Tie application URLs and cache names to the Python archive contents."""
     with open(archive_path, "rb") as archive_file:
         archive_hash = hashlib.sha256(archive_file.read()).hexdigest()[:16]
 
-    with open(index_path, "r", encoding="utf-8") as index_file:
-        index_html = index_file.read()
+    for template_path in template_paths:
+        with open(template_path, "r", encoding="utf-8") as template_file:
+            template_content = template_file.read()
 
-    if APP_ARCHIVE_HASH_PLACEHOLDER not in index_html:
-        raise RuntimeError("index.html is missing the app archive hash placeholder")
+        if APP_ARCHIVE_HASH_PLACEHOLDER not in template_content:
+            raise RuntimeError(f"{os.path.basename(template_path)} is missing the app archive hash placeholder")
 
-    with open(index_path, "w", encoding="utf-8", newline="\n") as index_file:
-        index_file.write(index_html.replace(APP_ARCHIVE_HASH_PLACEHOLDER, archive_hash))
+        with open(template_path, "w", encoding="utf-8", newline="\n") as template_file:
+            template_file.write(template_content.replace(APP_ARCHIVE_HASH_PLACEHOLDER, archive_hash))
 
     print(f"Versioned app.tar.gz with build hash {archive_hash}.")
 
@@ -65,6 +100,8 @@ def main():
         "--assets assets"
     )
     run_command(publish_cmd, cwd=source_dir)
+    prune_debug_artifacts(deploy_dir)
+    add_python_startup_bridge(os.path.join(deploy_dir, "python.js"))
     
     print("\n--- 2. Restoring Custom Gumli PWA Container Templates ---")
     
@@ -89,7 +126,10 @@ def main():
         os.path.join(deploy_dir, "index.html")
     )
     add_app_archive_cache_buster(
-        os.path.join(deploy_dir, "index.html"),
+        [
+            os.path.join(deploy_dir, "index.html"),
+            os.path.join(deploy_dir, "flutter_service_worker.js"),
+        ],
         os.path.join(deploy_dir, "app.tar.gz"),
     )
     

@@ -27,6 +27,10 @@ class BuildOutputTests(unittest.TestCase):
     def test_python_worker_exists(self):
         self.assertTrue((DEPLOY_APP / "python-worker.js").is_file())
 
+    def test_python_host_forwards_startup_marks(self):
+        python_host = (DEPLOY_APP / "python.js").read_text(encoding="utf-8")
+        self.assertIn("__gumli_startup__:", python_host)
+
     def test_built_manifest_is_valid_json(self):
         value = json.loads((DEPLOY_APP / "manifest.json").read_text(encoding="utf-8"))
         self.assertEqual(value["name"], "Gumli")
