@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import AsyncMock
 
 from src.models.family import FamilyConnection
+from src.core.theme import MINT_GREEN, TEXT_MUTED, TEXT_PRIMARY
 from src.views.family_connection_view import FamilyConnectionView
 
 
@@ -12,6 +13,16 @@ class FamilyConnectionViewTests(unittest.IsolatedAsyncioTestCase):
         repository.connect.return_value = FamilyConnection("n" * 48, "Nicklas")
         view = FamilyConnectionView(repository)
         return view, repository
+
+    async def test_device_key_field_uses_visible_dark_theme_colors(self):
+        view, _ = self.make_view()
+        self.assertEqual(view.token_field.text_style.color, TEXT_PRIMARY)
+        self.assertEqual(view.token_field.label_style.color, TEXT_MUTED)
+        self.assertEqual(view.token_field.cursor_color, MINT_GREEN)
+        self.assertFalse(view.token_field.autocorrect)
+        self.assertFalse(view.token_field.enable_suggestions)
+        self.assertFalse(view.token_field.smart_dashes_type)
+        self.assertFalse(view.token_field.smart_quotes_type)
 
     async def test_successful_connection_shows_server_member(self):
         view, repository = self.make_view()

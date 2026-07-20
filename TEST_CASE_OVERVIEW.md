@@ -14,11 +14,11 @@ Målet med dokumentet är att en människa snabbt och enkelt ska få en övergri
 
 | Område | Antal | Innehåll |
 |---|---:|---|
-| Enhetstester | 73 | Datamodeller, lagring, migrering, historikregler och familjeanslutning |
-| Komponenttester | 99 | Vyernas och komponenternas logik utan webbläsare |
+| Enhetstester | 74 | Datamodeller, lagring, migrering, historikregler och familjeanslutning |
+| Komponenttester | 100 | Vyernas och komponenternas logik utan webbläsare |
 | PWA- och distributionstester | 79 | Manifest, Apps Script-API, familjebrygga, byggfiler, sidmallar och de två repona |
-| GUI/E2E-tester | 72 | Verkliga användarflöden i Chromium |
-| **Totalt** | **323** | |
+| GUI/E2E-tester | 73 | Verkliga användarflöden i Chromium |
+| **Totalt** | **326** | |
 
 GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den byggda appen och deploy-repot finns lokalt; annars markeras de som överhoppade.
 
@@ -111,6 +111,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 |---|---|
 | `test_connect_verifies_and_persists_server_derived_member` | En ny enhetsnyckel sparas först efter att servern har godkänt den och returnerat rätt medlem. |
 | `test_wrong_key_is_not_persisted` | En felaktig enhetsnyckel nekas och sparas aldrig på enheten. |
+| `test_connect_removes_mobile_clipboard_artifacts` | Osynliga tecken, radbrytningar och omgivande citattecken från mobilens urklipp tas bort före verifiering. |
 | `test_resume_reuses_persisted_connection` | En tidigare godkänd anslutning verifieras på nytt och återanvänds vid nästa öppning. |
 | `test_invalid_local_state_does_not_make_network_request` | Trasig lokal anslutningsdata ignoreras utan att något familjeanrop görs. |
 | `test_disconnect_removes_persisted_connection` | Koppla från tar bort den separat sparade familjeanslutningen. |
@@ -183,6 +184,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 
 | Testfall | Vad testet kontrollerar |
 |---|---|
+| `test_device_key_field_uses_visible_dark_theme_colors` | Enhetsnyckelns text, etikett och markör har uttryckliga synliga färger i det mörka temat. |
 | `test_successful_connection_shows_server_member` | En godkänd nyckel visar den medlem som servern har identifierat. |
 | `test_wrong_key_shows_clear_error` | En felaktig nyckel ger ett tydligt svenskt felmeddelande. |
 | `test_resume_shows_persisted_member` | En sparad anslutning återställs automatiskt när Familj öppnas igen. |
@@ -414,6 +416,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_switches_to_work_mode` | Användaren byter till Jobb och ser jobbets checklista. | Privat och jobb måste kunna hanteras separat. |
 | `test_switches_back_to_private_mode` | Användaren byter från Jobb tillbaka till Privat och ser den privata checklistan. | Växlingen måste fungera åt båda hållen utan att fastna i fel läge. |
 | `test_switches_directly_from_family_back_to_private` | Användaren öppnar Familj och trycker sedan direkt på Privat utan att använda nedersta navigationen. | Familjens anslutningsvy får inte ligga kvar när huvudläget byts. |
+| `test_family_device_key_can_be_entered_and_reveal_control_used` | Användaren skriver en enhetsnyckel och använder fältets ögonknapp utan att nyckeln ändras. | Nyckeln måste gå att mata in och kontrollera visuellt före anslutning. |
 | `test_boot_has_no_console_errors` | Appen öppnas och fungerar utan fel under starten. | Dolda startfel kan annars ge tom sida eller trasiga funktioner senare. |
 
 ### Checklista — `tests/e2e/test_checklist_page.py`

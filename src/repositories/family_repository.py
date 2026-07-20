@@ -15,6 +15,8 @@ DeleteConnection = Callable[[], Awaitable[None]]
 
 
 class FamilyRepository:
+    _INVISIBLE_COPY_CHARACTERS = {"\u200b", "\u200c", "\u200d", "\ufeff"}
+
     def __init__(
         self,
         transport: Transport,
@@ -39,13 +41,24 @@ class FamilyRepository:
         )
 
     async def connect(self, device_token: str) -> FamilyConnection:
-        token = str(device_token or "").strip()
+        token = self._normalize_device_token(device_token)
         if len(token) < 32:
             raise ValueError("Kontrollera enhetsnyckeln och försök igen")
         response = await self._transport({"action": "ping", "deviceToken": token})
         connection = self._connection_from_response(token, response)
         await self._save(connection)
         return connection
+
+    @classmethod
+    def _normalize_device_token(cls, device_token: str) -> str:
+        token = "".join(
+            character
+            for character in str(device_token or "")
+            if not character.isspace() and character not in cls._INVISIBLE_COPY_CHARACTERS
+        )
+        if len(token) >= 2 and token[0] == token[-1] and token[0] in "`'\"":
+            token = token[1:-1]
+        return token
 
     async def resume(self) -> Optional[FamilyConnection]:
         raw = await self._load_connection()

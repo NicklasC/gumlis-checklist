@@ -44,6 +44,14 @@ class FamilyRepositoryTests(unittest.IsolatedAsyncioTestCase):
             await repo.connect("x" * 48)
         self.assertIsNone(storage.value)
 
+    async def test_connect_removes_mobile_clipboard_artifacts(self):
+        repo, storage, requests = self.make_repository({"ok": True, "member": "Nicklas"})
+        token = "AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-ab"
+        connection = await repo.connect(f"`\u200b{token}\ufeff`\n")
+        self.assertEqual(connection.device_token, token)
+        self.assertEqual(requests, [{"action": "ping", "deviceToken": token}])
+        self.assertEqual(json.loads(storage.value)["deviceToken"], token)
+
     async def test_resume_reuses_persisted_connection(self):
         token = "i" * 48
         stored = json.dumps({"deviceToken": token, "member": "Ida"})

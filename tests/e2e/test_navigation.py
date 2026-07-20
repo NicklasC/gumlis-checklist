@@ -39,5 +39,17 @@ class NavigationTests(BrowserTestCase):
         self.set_mode("Privat")
         self.assertTrue(self.page.get_by_text("Allt klart på den privata listan!", exact=True).is_visible())
 
+    def test_family_device_key_can_be_entered_and_reveal_control_used(self):
+        self.set_mode("Familj")
+        field = self.page.get_by_role("textbox", name="Enhetsnyckel")
+        field.fill("SynligEnhetsnyckel123456789012345")
+        self.assertEqual(field.input_value(), "SynligEnhetsnyckel123456789012345")
+        reveal_button = self.page.locator(
+            'flt-semantics:has(> input[aria-label="Enhetsnyckel"]) + flt-semantics[role="button"]'
+        )
+        self.assertEqual(reveal_button.count(), 1)
+        reveal_button.click()
+        self.assertEqual(field.input_value(), "SynligEnhetsnyckel123456789012345")
+
     def test_boot_has_no_console_errors(self):
         self.assert_no_unexpected_console_errors()
