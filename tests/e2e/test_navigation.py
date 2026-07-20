@@ -39,6 +39,60 @@ class NavigationTests(BrowserTestCase):
         self.set_mode("Privat")
         self.assertTrue(self.page.get_by_text("Allt klart på den privata listan!", exact=True).is_visible())
 
+    def test_all_pages_remain_reachable_after_successful_family_response(self):
+        self.page.evaluate(
+            """() => {
+                window.gumliFamilyBridge.forward = (message, worker) => {
+                    worker.postMessage({
+                        type: 'gumli-family-response',
+                        requestId: message.requestId,
+                        response: {ok: true, data: {member: 'Nicklas'}}
+                    });
+                };
+            }"""
+        )
+
+        self.set_mode("Familj")
+        self.page.get_by_role("textbox", name="Enhetsnyckel").fill("n" * 48)
+        self.page.get_by_role("button", name="Anslut den här enheten", exact=True).click()
+        self.page.get_by_text("Ansluten som Nicklas", exact=True).wait_for(
+            state="visible", timeout=10_000
+        )
+
+        destinations = {
+            "Checklista": {
+                "Privat": "Allt klart på den privata listan!",
+                "Jobb": "Allt klart på jobb-listan!",
+            },
+            "Snabblistan": {
+                "Privat": "Hantera favoriter",
+                "Jobb": "Hantera favoriter",
+            },
+            "Historik": {
+                "Privat": "Ingen privat historik än",
+                "Jobb": "Ingen jobb-historik än",
+            },
+            "Senare": {
+                "Privat": "Inga privata uppgifter i Senare",
+                "Jobb": "Inga jobb-uppgifter i Senare",
+            },
+        }
+
+        for mode in ("Privat", "Jobb"):
+            self.set_mode(mode)
+            for tab_name, expected_by_mode in destinations.items():
+                self.select_tab(tab_name)
+                self.assertTrue(
+                    self.page.get_by_text(expected_by_mode[mode], exact=True).is_visible(),
+                    f"{mode} / {tab_name} öppnade inte avsedd sida",
+                )
+
+            if mode == "Privat":
+                self.set_mode("Familj")
+                self.page.get_by_text("Ansluten som Nicklas", exact=True).wait_for(
+                    state="visible", timeout=10_000
+                )
+
     def test_family_device_key_can_be_entered_and_reveal_control_used(self):
         self.set_mode("Familj")
         field = self.page.get_by_role("textbox", name="Enhetsnyckel")

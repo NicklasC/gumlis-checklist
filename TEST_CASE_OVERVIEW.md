@@ -17,8 +17,8 @@ Målet med dokumentet är att en människa snabbt och enkelt ska få en övergri
 | Enhetstester | 85 | Datamodeller, lagring, migrering, historikregler och familjeanslutning |
 | Komponenttester | 100 | Vyernas och komponenternas logik utan webbläsare |
 | PWA- och distributionstester | 88 | Manifest, Apps Script-API, familjebrygga, byggfiler, sidmallar och de två repona |
-| GUI/E2E-tester | 73 | Verkliga användarflöden i Chromium |
-| **Totalt** | **346** | |
+| GUI/E2E-tester | 74 | Verkliga användarflöden i Chromium |
+| **Totalt** | **347** | |
 
 GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den byggda appen och deploy-repot finns lokalt; annars markeras de som överhoppade.
 
@@ -441,6 +441,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_switches_to_work_mode` | Användaren byter till Jobb och ser jobbets checklista. | Privat och jobb måste kunna hanteras separat. |
 | `test_switches_back_to_private_mode` | Användaren byter från Jobb tillbaka till Privat och ser den privata checklistan. | Växlingen måste fungera åt båda hållen utan att fastna i fel läge. |
 | `test_switches_directly_from_family_back_to_private` | Användaren öppnar Familj och trycker sedan direkt på Privat utan att använda nedersta navigationen. | Familjens anslutningsvy får inte ligga kvar när huvudläget byts. |
+| `test_all_pages_remain_reachable_after_successful_family_response` | Appen tar emot en lyckad familjerespons och användaren går därefter via Privat och Jobb till Checklista, Snabblistan, Historik och Senare. | Ett familjesvar får inte låsa toppvalen eller nedersta navigationen, och varje knapp ska öppna avsedd sida. |
 | `test_family_device_key_can_be_entered_and_reveal_control_used` | Användaren skriver en enhetsnyckel och använder fältets ögonknapp utan att nyckeln ändras. | Nyckeln måste gå att mata in och kontrollera visuellt före anslutning. |
 | `test_boot_has_no_console_errors` | Appen öppnas och fungerar utan fel under starten. | Dolda startfel kan annars ge tom sida eller trasiga funktioner senare. |
 
