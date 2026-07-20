@@ -8,15 +8,16 @@ produktens sanningskälla; kontrollpunkterna styr endast genomförandeordningen.
 Separat servicekonto, unik enhetsnyckel, lazy Familj-start och beständig Android-PWA-
 anslutning är verifierade och publicerade.
 
-## 2. Modeller och skrivskyddat bootstrap-API – Pågår
+## 2. Modeller och skrivskyddat bootstrap-API – Godkänd
 
 - Svenska radvärden valideras i separata familjemodeller.
 - `bootstrap` returnerar Aktuell, medlemmar och favoriter men inte historik eller raderat.
 - `listLater` hålls separat.
 - Felaktiga Sheet-rader isoleras utan att blockera giltiga rader.
 - Alla API-svar följer ett stabilt svarskuvert.
+- Produktionsbladen, Apps Script version 4 och beständig anslutning som Nicklas är verifierade.
 
-## 3. Aktuell-lista och synkning – Väntar
+## 3. Aktuell-lista och synkning – Pågår
 
 Cache, synkstatus, Mina/Alla-filter, kompakt mobilrad och deadlineindikering.
 

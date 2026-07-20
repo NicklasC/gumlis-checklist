@@ -114,7 +114,7 @@
         debug.lastResponse = {
           ok: Boolean(message.response?.ok),
           error: message.response?.error || null,
-          member: message.response?.member || null
+          member: message.response?.data?.member || message.response?.member || null
         };
         publishDebug();
         const request = pending.get(message.requestId);

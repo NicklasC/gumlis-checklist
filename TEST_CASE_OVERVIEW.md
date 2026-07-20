@@ -16,9 +16,9 @@ Målet med dokumentet är att en människa snabbt och enkelt ska få en övergri
 |---|---:|---|
 | Enhetstester | 85 | Datamodeller, lagring, migrering, historikregler och familjeanslutning |
 | Komponenttester | 100 | Vyernas och komponenternas logik utan webbläsare |
-| PWA- och distributionstester | 84 | Manifest, Apps Script-API, familjebrygga, byggfiler, sidmallar och de två repona |
+| PWA- och distributionstester | 85 | Manifest, Apps Script-API, familjebrygga, byggfiler, sidmallar och de två repona |
 | GUI/E2E-tester | 73 | Verkliga användarflöden i Chromium |
-| **Totalt** | **342** | |
+| **Totalt** | **343** | |
 
 GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den byggda appen och deploy-repot finns lokalt; annars markeras de som överhoppade.
 
@@ -380,6 +380,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_bridge_validates_iframe_source_and_response_origin` | PWA:n accepterar bara svar från den inramade, betrodda Google-sidan. |
 | `test_device_token_is_not_part_of_api_url` | Enhetsnyckeln förekommer inte i Apps Script-adressen. |
 | `test_diagnostics_never_store_request_payload_or_token` | Den säkra webbläsardiagnostiken lagrar varken anropsinnehåll eller enhetsnyckel. |
+| `test_diagnostics_reads_member_from_stable_response_envelope` | Diagnostiken läser medlemmen ur det stabila API-svarets `data`-del och stöder samtidigt äldre svar. |
 | `test_deploy_forwards_only_family_worker_messages` | Den byggda Pythonvärden vidarebefordrar endast uttryckliga familjemeddelanden till bryggan. |
 
 ### Färdigbyggd PWA — `tests/pwa/test_build_output.py`

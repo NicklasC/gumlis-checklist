@@ -37,6 +37,9 @@ class FamilyBridgeTemplateTests(unittest.TestCase):
         self.assertNotIn("payload", debug_block)
         self.assertNotIn("deviceToken", debug_block)
 
+    def test_diagnostics_reads_member_from_stable_response_envelope(self):
+        self.assertIn("message.response?.data?.member || message.response?.member", self.html)
+
     def test_deploy_forwards_only_family_worker_messages(self):
         self.assertIn('event.data?.type === \\"gumli-family-request\\"', self.deploy)
         self.assertIn("window.gumliFamilyBridge?.forward", self.deploy)
