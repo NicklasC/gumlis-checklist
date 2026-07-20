@@ -15,7 +15,7 @@ anslutning är verifierade och publicerade.
 - `listLater` hålls separat.
 - Felaktiga Sheet-rader isoleras utan att blockera giltiga rader.
 - Alla API-svar följer ett stabilt svarskuvert.
-- Produktionsbladen, Apps Script version 4 och beständig anslutning som Nicklas är verifierade.
+- Produktionsbladen, Apps Script version 5 och beständig anslutning som Nicklas är verifierade.
 
 ## 3. Aktuell-lista och synkning – Pågår
 
