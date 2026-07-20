@@ -14,11 +14,11 @@ Målet med dokumentet är att en människa snabbt och enkelt ska få en övergri
 
 | Område | Antal | Innehåll |
 |---|---:|---|
-| Enhetstester | 85 | Datamodeller, lagring, migrering, historikregler och familjeanslutning |
-| Komponenttester | 100 | Vyernas och komponenternas logik utan webbläsare |
+| Enhetstester | 89 | Datamodeller, lagring, migrering, historikregler och familjeanslutning |
+| Komponenttester | 104 | Vyernas och komponenternas logik utan webbläsare |
 | PWA- och distributionstester | 88 | Manifest, Apps Script-API, familjebrygga, byggfiler, sidmallar och de två repona |
-| GUI/E2E-tester | 74 | Verkliga användarflöden i Chromium |
-| **Totalt** | **347** | |
+| GUI/E2E-tester | 75 | Verkliga användarflöden i Chromium |
+| **Totalt** | **356** | |
 
 GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den byggda appen och deploy-repot finns lokalt; annars markeras de som överhoppade.
 
@@ -100,6 +100,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_unavailable_legacy_store_never_persists_defaults` | Standarddata skrivs inte om den gamla lagringen inte kunnat kontrolleras. |
 | `test_migrated_session_writes_directly_afterward` | Efter migreringen går efterföljande skrivningar direkt till den nya lagringen. |
 | `test_direct_database_failure_keeps_legacy_data_read_only` | Vid fel i nya IndexedDB visas gamla data utan att något skrivs över. |
+| `test_family_bootstrap_cache_uses_separate_storage_key` | Familjens bootstrap-cache sparas separat från Privat/Jobb-data. |
 
 ### Lokal repositorylagring — `tests/unit/test_client_storage_repository.py`
 
@@ -128,7 +129,10 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_connect_removes_mobile_clipboard_artifacts` | Osynliga tecken, radbrytningar och omgivande citattecken från mobilens urklipp tas bort före verifiering. |
 | `test_resume_reuses_persisted_connection` | En tidigare godkänd anslutning verifieras på nytt och återanvänds vid nästa öppning. |
 | `test_bootstrap_parses_tasks_members_and_favorites` | Bootstrap validerar uppgifter, medlemmar, favoriter och servertid. |
+| `test_bootstrap_persists_valid_cache` | Ett giltigt bootstrap-svar sparas lokalt för nästa öppning och offlinevisning. |
+| `test_bootstrap_succeeds_when_cache_write_fails` | En lyckad nätverkssynkning visas även om den lokala cache-skrivningen misslyckas. |
 | `test_bootstrap_requires_connected_device` | Bootstrap gör inget nätverksanrop från en oansluten enhet. |
+| `test_cached_bootstrap_ignores_invalid_cache` | Trasig cache ignoreras säkert och används inte som familjedata. |
 | `test_invalid_local_state_does_not_make_network_request` | Trasig lokal anslutningsdata ignoreras utan att något familjeanrop görs. |
 | `test_disconnect_removes_persisted_connection` | Koppla från tar bort den separat sparade familjeanslutningen. |
 
@@ -205,6 +209,15 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_wrong_key_shows_clear_error` | En felaktig nyckel ger ett tydligt svenskt felmeddelande. |
 | `test_resume_shows_persisted_member` | En sparad anslutning återställs automatiskt när Familj öppnas igen. |
 | `test_disconnect_returns_to_connection_form` | Koppla från återgår till formuläret för enhetsnyckel. |
+
+### Familjens Aktuell-lista — `tests/components/test_family_current_view.py`
+
+| Testfall | Vad testet kontrollerar |
+|---|---|
+| `test_deadline_text_marks_overdue_in_red_state` | En passerad deadline visas som försenad med rätt antal dagar. |
+| `test_row_exposes_assignee_and_overdue_deadline` | Den kompakta raden visar ansvarig och röd förseningsmarkering. |
+| `test_all_and_mine_filters_sort_and_count_tasks` | Alla/Mina filtrerar, räknar och sorterar Aktuell-listan enligt familjereglerna. |
+| `test_empty_mine_filter_has_clear_message` | Ett tomt Mina-filter ger ett tydligt meddelande. |
 
 ### Snabbinmatning — `tests/components/test_quick_add.py`
 
@@ -441,7 +454,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_switches_to_work_mode` | Användaren byter till Jobb och ser jobbets checklista. | Privat och jobb måste kunna hanteras separat. |
 | `test_switches_back_to_private_mode` | Användaren byter från Jobb tillbaka till Privat och ser den privata checklistan. | Växlingen måste fungera åt båda hållen utan att fastna i fel läge. |
 | `test_switches_directly_from_family_back_to_private` | Användaren öppnar Familj och trycker sedan direkt på Privat utan att använda nedersta navigationen. | Familjens anslutningsvy får inte ligga kvar när huvudläget byts. |
-| `test_all_pages_remain_reachable_after_successful_family_response` | Appen tar emot en lyckad familjerespons och användaren går därefter via Privat och Jobb till Checklista, Snabblistan, Historik och Senare. | Ett familjesvar får inte låsa toppvalen eller nedersta navigationen, och varje knapp ska öppna avsedd sida. |
+| `test_all_pages_remain_reachable_after_successful_family_response` | Appen tar emot en lyckad familjerespons, visar en försenad Aktuell-uppgift, filtrerar Mina och går därefter via Privat och Jobb till Checklista, Snabblistan, Historik och Senare. | Familjesvaret får inte låsa gränssnittet; Aktuell-lista, deadline, filter och all befintlig navigation ska fungera. |
 | `test_family_device_key_can_be_entered_and_reveal_control_used` | Användaren skriver en enhetsnyckel och använder fältets ögonknapp utan att nyckeln ändras. | Nyckeln måste gå att mata in och kontrollera visuellt före anslutning. |
 | `test_boot_has_no_console_errors` | Appen öppnas och fungerar utan fel under starten. | Dolda startfel kan annars ge tom sida eller trasiga funktioner senare. |
 

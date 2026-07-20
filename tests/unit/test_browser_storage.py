@@ -8,6 +8,7 @@ from src.repositories import browser_storage
 class FakeBridge:
     def __init__(self, value=None, fail_get=False):
         self.value = value
+        self.family_bootstrap = None
         self.fail_get = fail_get
         self.put_values = []
         self.put_soon_values = []
@@ -22,6 +23,12 @@ class FakeBridge:
 
     def putSoon(self, value):
         self.put_soon_values.append(value)
+
+    async def getFamilyBootstrap(self):
+        return self.family_bootstrap
+
+    async def putFamilyBootstrap(self, value):
+        self.family_bootstrap = value
 
 
 class BrowserStorageTests(unittest.IsolatedAsyncioTestCase):
@@ -114,3 +121,15 @@ class BrowserStorageTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result, "legacy-read-only")
         self.assertEqual(browser_storage.read_cached(), '{"legacy":true}')
         self.assertFalse(browser_storage.write_cached('{"defaults":true}'))
+
+    async def test_family_bootstrap_cache_uses_separate_storage_key(self):
+        bridge = FakeBridge()
+
+        async def legacy_loader():
+            return True
+
+        await browser_storage.prepare_browser_storage(legacy_loader, str(self.legacy_path), bridge)
+        await browser_storage.write_family_bootstrap('{"tasks":[]}')
+
+        self.assertEqual(await browser_storage.read_family_bootstrap(), '{"tasks":[]}')
+        self.assertEqual(browser_storage.read_cached(), None)

@@ -134,6 +134,8 @@ class MainView(ft.Container):
         self.view_history = None
         self.view_later = None
         self.view_family = None
+        self.view_family_current = None
+        self.family_member = None
         
         # Container to hold the active view
         self.content_area = ft.Container(
@@ -227,6 +229,11 @@ class MainView(ft.Container):
         """Switches global mode and triggers active view updates."""
         self.current_mode = mode
         if mode == FAMILY_MODE:
+            if self.view_family_current is not None and self.family_member is not None:
+                self.content_area.content = self.view_family_current
+                self.content_area.update()
+                self.view_family_current.activate()
+                return
             view = self._ensure_family_view()
             self.content_area.content = view
             self.content_area.update()
@@ -238,7 +245,7 @@ class MainView(ft.Container):
         """Switches screens and reloads their respective data for reactive UI synchronization."""
         idx = int(e.data)
         if self.current_mode == FAMILY_MODE:
-            view = self._ensure_family_view()
+            view = self.view_family_current or self._ensure_family_view()
             self.content_area.content = view
             self.content_area.update()
             view.activate()
@@ -291,8 +298,22 @@ class MainView(ft.Container):
                 if self.family_repository_factory is not None
                 else FamilyRepository.web_default()
             )
-            self.view_family = FamilyConnectionView(repository)
+            self.view_family = FamilyConnectionView(
+                repository,
+                on_connected=self._handle_family_connected,
+            )
         return self.view_family
+
+    def _handle_family_connected(self, member: str):
+        from src.views.family_current_view import FamilyCurrentView
+
+        self.family_member = member
+        if self.view_family_current is None:
+            repository = self.view_family.repository
+            self.view_family_current = FamilyCurrentView(repository, member)
+        self.content_area.content = self.view_family_current
+        self.content_area.update()
+        self.view_family_current.activate()
 
     @staticmethod
     def _reload_view(idx, view):

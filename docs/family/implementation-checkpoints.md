@@ -21,6 +21,19 @@ anslutning är verifierade och publicerade.
 
 Cache, synkstatus, Mina/Alla-filter, kompakt mobilrad och deadlineindikering.
 
+### 3A. Aktuell-listans skrivskyddade grund – lokalt godkänd
+
+- [x] Separat Familj-bootstrap-cache i IndexedDB.
+- [x] Aktuell-lista visas efter lyckad anslutning.
+- [x] Synkstatus visar laddning, synkad data, cache/offline och fel utan cache.
+- [x] Alla/Mina-filter med räknare.
+- [x] Kompakt rad med ansvarig, deadline och röd förseningsindikering.
+- [x] Sortering enligt deadline- och skapandetidsreglerna.
+- [x] 89 enhets- och 104 komponenttester samt GUI-regression godkända lokalt.
+
+Nästa delsteg måste först lägga till verklig familjenavigering för Senare,
+Snabblistan och Historik innan kontrollpunkt 3 kan slutgodkännas.
+
 ## 4. Skapa och redigera – Väntar
 
 Titel, ansvarig, deadline, Tilldelad av, Senast ändrad av och versionskontroll.

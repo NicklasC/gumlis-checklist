@@ -89,6 +89,27 @@ def _install_bridge():
                 transaction.onerror = () => { db.close(); reject(transaction.error); };
                 transaction.onabort = () => { db.close(); reject(transaction.error); };
               });
+            },
+            async getFamilyBootstrap() {
+              const db = await open();
+              return new Promise((resolve, reject) => {
+                const transaction = db.transaction(STORE_NAME, 'readonly');
+                const request = transaction.objectStore(STORE_NAME).get('family-bootstrap-v1');
+                request.onsuccess = () => resolve(request.result ?? null);
+                request.onerror = () => reject(request.error);
+                transaction.oncomplete = () => db.close();
+                transaction.onerror = () => reject(transaction.error);
+              });
+            },
+            async putFamilyBootstrap(value) {
+              const db = await open();
+              return new Promise((resolve, reject) => {
+                const transaction = db.transaction(STORE_NAME, 'readwrite');
+                transaction.objectStore(STORE_NAME).put(value, 'family-bootstrap-v1');
+                transaction.oncomplete = () => { db.close(); resolve(true); };
+                transaction.onerror = () => { db.close(); reject(transaction.error); };
+                transaction.onabort = () => { db.close(); reject(transaction.error); };
+              });
             }
           };
         })();
@@ -172,6 +193,19 @@ async def delete_family_connection() -> None:
     if _bridge is None:
         return
     await _bridge.deleteFamilyConnection()
+
+
+async def read_family_bootstrap() -> Optional[str]:
+    if _bridge is None:
+        return None
+    value = await _bridge.getFamilyBootstrap()
+    return None if value is None else str(value)
+
+
+async def write_family_bootstrap(content: str) -> None:
+    if _bridge is None:
+        raise RuntimeError("Webbläsarlagringen är inte redo")
+    await _bridge.putFamilyBootstrap(content)
 
 
 def reset_storage_state():

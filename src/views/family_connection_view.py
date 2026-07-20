@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import inspect
+
 import flet as ft
 
 from src.core.theme import BG_COLOR, MINT_GREEN, TEXT_MUTED, TEXT_PRIMARY, border_all
@@ -8,8 +10,9 @@ from src.core.theme import BG_COLOR, MINT_GREEN, TEXT_MUTED, TEXT_PRIMARY, borde
 class FamilyConnectionView(ft.Container):
     """Small first-run view used by the bounded family feasibility test."""
 
-    def __init__(self, repository):
+    def __init__(self, repository, on_connected=None):
         self.repository = repository
+        self.on_connected = on_connected
         self._load_started = False
         self.token_field = ft.TextField(
             label="Enhetsnyckel",
@@ -79,6 +82,7 @@ class FamilyConnectionView(ft.Container):
                 self._show_disconnected()
             else:
                 self._show_connected(connection.member)
+                await self._notify_connected(connection.member)
         except Exception:
             self._show_error("Familjen kunde inte nås. Försök igen.")
 
@@ -89,10 +93,18 @@ class FamilyConnectionView(ft.Container):
             connection = await self.repository.connect(token)
             self.token_field.value = ""
             self._show_connected(connection.member)
+            await self._notify_connected(connection.member)
         except (ValueError, PermissionError) as error:
             self._show_error(str(error))
         except Exception:
             self._show_error("Familjen kunde inte nås. Försök igen.")
+
+    async def _notify_connected(self, member: str):
+        if self.on_connected is None:
+            return
+        result = self.on_connected(member)
+        if inspect.isawaitable(result):
+            await result
 
     async def _disconnect(self, _event=None):
         await self.repository.disconnect()

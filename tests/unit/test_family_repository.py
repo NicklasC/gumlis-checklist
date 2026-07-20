@@ -1,5 +1,6 @@
 import json
 import unittest
+from unittest.mock import AsyncMock
 
 from src.repositories.family_repository import FamilyRepository
 
@@ -107,6 +108,74 @@ class FamilyRepositoryTests(unittest.IsolatedAsyncioTestCase):
         bootstrap = await repo.bootstrap()
         self.assertEqual(bootstrap.tasks[0].title, "Töm soporna")
         self.assertEqual(requests, [{"action": "bootstrap", "deviceToken": token}])
+
+    async def test_bootstrap_persists_valid_cache(self):
+        token = "t" * 48
+        storage = FakeConnectionStorage(json.dumps({"deviceToken": token, "member": "Nicklas"}))
+        cached = []
+
+        async def transport(payload):
+            return {
+                "ok": True,
+                "data": {"tasks": [], "members": [], "favorites": [], "invalidRows": []},
+                "server_time": "2026-07-20T12:00:00+00:00",
+            }
+
+        async def save_cache(value):
+            cached.append(value)
+
+        repo = FamilyRepository(
+            transport,
+            storage.load,
+            storage.save,
+            storage.delete,
+            save_bootstrap_cache=save_cache,
+        )
+
+        await repo.bootstrap()
+
+        self.assertEqual(len(cached), 1)
+        self.assertEqual(json.loads(cached[0])["tasks"], [])
+
+    async def test_bootstrap_succeeds_when_cache_write_fails(self):
+        token = "t" * 48
+        storage = FakeConnectionStorage(json.dumps({"deviceToken": token, "member": "Nicklas"}))
+
+        async def transport(payload):
+            return {
+                "ok": True,
+                "data": {"tasks": [], "members": [], "favorites": [], "invalidRows": []},
+                "server_time": "2026-07-20T12:00:00+00:00",
+            }
+
+        async def save_cache(value):
+            raise RuntimeError("cache unavailable")
+
+        repo = FamilyRepository(
+            transport,
+            storage.load,
+            storage.save,
+            storage.delete,
+            save_bootstrap_cache=save_cache,
+        )
+
+        self.assertEqual((await repo.bootstrap()).tasks, [])
+
+    async def test_cached_bootstrap_ignores_invalid_cache(self):
+        storage = FakeConnectionStorage()
+
+        async def load_cache():
+            return "not-json"
+
+        repo = FamilyRepository(
+            AsyncMock(),
+            storage.load,
+            storage.save,
+            storage.delete,
+            load_bootstrap_cache=load_cache,
+        )
+
+        self.assertIsNone(await repo.cached_bootstrap())
 
     async def test_bootstrap_requires_connected_device(self):
         repo, _, requests = self.make_repository({"ok": True})

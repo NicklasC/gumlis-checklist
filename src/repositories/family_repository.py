@@ -14,6 +14,8 @@ Transport = Callable[[dict], Awaitable[dict]]
 LoadConnection = Callable[[], Awaitable[Optional[str]]]
 SaveConnection = Callable[[str], Awaitable[None]]
 DeleteConnection = Callable[[], Awaitable[None]]
+LoadBootstrapCache = Callable[[], Awaitable[Optional[str]]]
+SaveBootstrapCache = Callable[[str], Awaitable[None]]
 
 
 class FamilyRepository:
@@ -25,11 +27,15 @@ class FamilyRepository:
         load_connection: LoadConnection,
         save_connection: SaveConnection,
         delete_connection: DeleteConnection,
+        load_bootstrap_cache: Optional[LoadBootstrapCache] = None,
+        save_bootstrap_cache: Optional[SaveBootstrapCache] = None,
     ):
         self._transport = transport
         self._load_connection = load_connection
         self._save_connection = save_connection
         self._delete_connection = delete_connection
+        self._load_bootstrap_cache = load_bootstrap_cache
+        self._save_bootstrap_cache = save_bootstrap_cache
 
     @classmethod
     def web_default(cls) -> "FamilyRepository":
@@ -40,6 +46,8 @@ class FamilyRepository:
             load_connection=browser_storage.read_family_connection,
             save_connection=browser_storage.write_family_connection,
             delete_connection=browser_storage.delete_family_connection,
+            load_bootstrap_cache=browser_storage.read_family_bootstrap,
+            save_bootstrap_cache=browser_storage.write_family_bootstrap,
         )
 
     async def connect(self, device_token: str) -> FamilyConnection:
@@ -84,7 +92,7 @@ class FamilyRepository:
         )
         data = self._response_data(response)
         try:
-            return FamilyBootstrap.model_validate(
+            bootstrap = FamilyBootstrap.model_validate(
                 {
                     "tasks": data.get("tasks", []),
                     "members": data.get("members", []),
@@ -93,8 +101,33 @@ class FamilyRepository:
                     "server_time": response.get("server_time"),
                 }
             )
+            await self._save_bootstrap(bootstrap)
+            return bootstrap
         except (AttributeError, TypeError, ValidationError) as error:
             raise ConnectionError("Familjen returnerade ogiltiga data") from error
+
+    async def cached_bootstrap(self) -> Optional[FamilyBootstrap]:
+        """Return the last valid family bootstrap without contacting the server."""
+        if self._load_bootstrap_cache is None:
+            return None
+        try:
+            raw = await self._load_bootstrap_cache()
+            if not raw:
+                return None
+            return FamilyBootstrap.model_validate(json.loads(raw))
+        except (TypeError, ValueError, json.JSONDecodeError, ValidationError):
+            return None
+
+    async def _save_bootstrap(self, bootstrap: FamilyBootstrap) -> None:
+        if self._save_bootstrap_cache is None:
+            return
+        try:
+            await self._save_bootstrap_cache(
+                json.dumps(bootstrap.model_dump(mode="json"), ensure_ascii=False)
+            )
+        except Exception:
+            # A cache write must never turn a successful live sync into an error.
+            return
 
     async def disconnect(self) -> None:
         await self._delete_connection()

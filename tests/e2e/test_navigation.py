@@ -43,10 +43,40 @@ class NavigationTests(BrowserTestCase):
         self.page.evaluate(
             """() => {
                 window.gumliFamilyBridge.forward = (message, worker) => {
+                    const isBootstrap = message.payload?.action === 'bootstrap';
                     worker.postMessage({
                         type: 'gumli-family-response',
                         requestId: message.requestId,
-                        response: {ok: true, data: {member: 'Nicklas'}}
+                        response: {
+                            ok: true,
+                            data: isBootstrap
+                                ? {
+                                    tasks: [
+                                        {
+                                            id: 'family-overdue', title: 'Försenad familjeuppgift',
+                                            status: 'Aktuell', assignee: 'Nicklas',
+                                            assigned_by: 'Nicklas', assigned_at: '2026-07-20T08:00:00+00:00',
+                                            created_by: 'Nicklas', created_at: '2026-07-20T08:00:00+00:00',
+                                            deadline: '2026-07-18', updated_by: 'Nicklas',
+                                            updated_at: '2026-07-20T08:00:00+00:00',
+                                            completed_by: null, completed_at: null, version: 1
+                                        },
+                                        {
+                                            id: 'family-all', title: 'Gemensam familjeuppgift',
+                                            status: 'Aktuell', assignee: 'Alla',
+                                            assigned_by: 'Nicklas', assigned_at: '2026-07-20T08:00:00+00:00',
+                                            created_by: 'Nicklas', created_at: '2026-07-20T08:00:00+00:00',
+                                            deadline: null, updated_by: 'Nicklas',
+                                            updated_at: '2026-07-20T08:00:00+00:00',
+                                            completed_by: null, completed_at: null, version: 1
+                                        }
+                                    ],
+                                    members: [{name: 'Nicklas', active: true, sort_order: 1}],
+                                    favorites: [], invalidRows: []
+                                }
+                                : {member: 'Nicklas'},
+                            server_time: '2026-07-20T12:00:00+00:00'
+                        }
                     });
                 };
             }"""
@@ -58,6 +88,12 @@ class NavigationTests(BrowserTestCase):
         self.page.get_by_text("Ansluten som Nicklas", exact=True).wait_for(
             state="visible", timeout=10_000
         )
+        self.page.get_by_text("Försenad 2 dagar", exact=True).wait_for(state="visible", timeout=10_000)
+        self.assertTrue(self.page.get_by_text("Försenad familjeuppgift", exact=True).is_visible())
+        self.assertTrue(self.page.get_by_role("button", name="Alla (2)", exact=True).is_visible())
+        self.assertTrue(self.page.get_by_role("button", name="Mina (1)", exact=True).is_visible())
+        self.page.get_by_role("button", name="Mina (1)", exact=True).click()
+        self.page.get_by_text("Gemensam familjeuppgift", exact=True).wait_for(state="hidden")
 
         destinations = {
             "Checklista": {
