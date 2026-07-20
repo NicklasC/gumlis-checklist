@@ -84,3 +84,31 @@ class MainViewTests(unittest.TestCase):
         self.assertIs(view.content_area.content, family_view)
         view._refresh_active_view.assert_not_called()
         family_view.activate.assert_called_once_with()
+
+    def test_switching_from_family_to_private_replaces_family_view(self):
+        view = MainView(
+            InMemoryRepository(),
+            family_repository_factory=MagicMock(return_value=MagicMock()),
+        )
+        view.content_area.update = MagicMock()
+        view._ensure_family_view().activate = MagicMock()
+        view._handle_mode_change(FAMILY_MODE)
+
+        view._handle_mode_change(PRIVATE)
+
+        self.assertEqual(view.current_mode, PRIVATE)
+        self.assertIs(view.content_area.content, view.view_checklist)
+
+    def test_switching_from_family_to_work_replaces_family_view(self):
+        view = MainView(
+            InMemoryRepository(),
+            family_repository_factory=MagicMock(return_value=MagicMock()),
+        )
+        view.content_area.update = MagicMock()
+        view._ensure_family_view().activate = MagicMock()
+        view._handle_mode_change(FAMILY_MODE)
+
+        view._handle_mode_change(WORK)
+
+        self.assertEqual(view.current_mode, WORK)
+        self.assertIs(view.content_area.content, view.view_checklist)

@@ -306,6 +306,7 @@ class MainView(ft.Container):
         idx = self.nav_bar.selected_index
         view = self._ensure_view(idx)
         self._reload_view(idx, view)
+        self.content_area.content = view
         self.content_area.update()
 
     def _handle_template_added(self, title: str, group_name: str):

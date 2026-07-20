@@ -33,5 +33,11 @@ class NavigationTests(BrowserTestCase):
         self.set_mode("Privat")
         self.assertTrue(self.page.get_by_text("Allt klart på den privata listan!", exact=True).is_visible())
 
+    def test_switches_directly_from_family_back_to_private(self):
+        self.set_mode("Familj")
+        self.assertTrue(self.page.get_by_text("Anslut Familj", exact=True).is_visible())
+        self.set_mode("Privat")
+        self.assertTrue(self.page.get_by_text("Allt klart på den privata listan!", exact=True).is_visible())
+
     def test_boot_has_no_console_errors(self):
         self.assert_no_unexpected_console_errors()

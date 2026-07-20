@@ -15,10 +15,10 @@ Målet med dokumentet är att en människa snabbt och enkelt ska få en övergri
 | Område | Antal | Innehåll |
 |---|---:|---|
 | Enhetstester | 67 | Datamodeller, lagring, migrering, historikregler och familjeanslutning |
-| Komponenttester | 93 | Vyernas och komponenternas logik utan webbläsare |
+| Komponenttester | 95 | Vyernas och komponenternas logik utan webbläsare |
 | PWA- och distributionstester | 79 | Manifest, Apps Script-API, familjebrygga, byggfiler, sidmallar och de två repona |
-| GUI/E2E-tester | 70 | Verkliga användarflöden i Chromium |
-| **Totalt** | **309** | |
+| GUI/E2E-tester | 71 | Verkliga användarflöden i Chromium |
+| **Totalt** | **312** | |
 
 GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den byggda appen och deploy-repot finns lokalt; annars markeras de som överhoppade.
 
@@ -144,6 +144,8 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_unknown_navigation_destination_is_rejected` | Ett okänt navigationsmål avvisas tydligt. |
 | `test_family_repository_and_view_are_lazy` | Familjens nätverkslager och vy skapas först när användaren väljer Familj. |
 | `test_family_mode_does_not_reload_private_repository_view` | Ett byte till Familj startar inte om Privat/Jobb-lagringen. |
+| `test_switching_from_family_to_private_replaces_family_view` | Ett direkt byte från Familj till Privat ersätter anslutningsvyn med den privata sidan. |
+| `test_switching_from_family_to_work_replaces_family_view` | Ett direkt byte från Familj till Jobb ersätter anslutningsvyn med jobbsidan. |
 
 ### Tidigt appskal — `tests/components/test_startup_view.py`
 
@@ -396,6 +398,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_later_page_opens` | Användaren trycker på Senare och ser Senare-sidan. | Uppgifter som inte gäller idag måste gå att nå. |
 | `test_switches_to_work_mode` | Användaren byter till Jobb och ser jobbets checklista. | Privat och jobb måste kunna hanteras separat. |
 | `test_switches_back_to_private_mode` | Användaren byter från Jobb tillbaka till Privat och ser den privata checklistan. | Växlingen måste fungera åt båda hållen utan att fastna i fel läge. |
+| `test_switches_directly_from_family_back_to_private` | Användaren öppnar Familj och trycker sedan direkt på Privat utan att använda nedersta navigationen. | Familjens anslutningsvy får inte ligga kvar när huvudläget byts. |
 | `test_boot_has_no_console_errors` | Appen öppnas och fungerar utan fel under starten. | Dolda startfel kan annars ge tom sida eller trasiga funktioner senare. |
 
 ### Checklista — `tests/e2e/test_checklist_page.py`
