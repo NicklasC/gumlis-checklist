@@ -112,3 +112,19 @@ class MainViewTests(unittest.TestCase):
 
         self.assertEqual(view.current_mode, WORK)
         self.assertIs(view.content_area.content, view.view_checklist)
+
+    def test_connected_family_uses_separate_bottom_pages(self):
+        repository = MagicMock()
+        view = MainView(InMemoryRepository(), family_repository_factory=MagicMock(return_value=repository))
+        view._ensure_family_view()
+        view.family_member = "Nicklas"
+
+        current = view._ensure_family_page(0)
+        favorites = view._ensure_family_page(1)
+        history = view._ensure_family_page(2)
+        later = view._ensure_family_page(3)
+
+        self.assertIs(view._ensure_family_page(0), current)
+        self.assertIsNot(favorites, current)
+        self.assertIsNot(history, current)
+        self.assertIsNot(later, current)

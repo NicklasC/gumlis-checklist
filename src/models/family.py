@@ -131,6 +131,14 @@ class FamilyBootstrap(BaseModel):
     server_time: datetime
 
 
+class FamilyTaskPage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tasks: list[FamilyTask]
+    invalid_rows: list[FamilyRowIssue] = Field(default_factory=list)
+    server_time: datetime
+
+
 @dataclass(frozen=True)
 class FamilyConnection:
     device_token: str

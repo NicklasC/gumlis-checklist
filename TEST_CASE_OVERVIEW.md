@@ -14,11 +14,11 @@ Målet med dokumentet är att en människa snabbt och enkelt ska få en övergri
 
 | Område | Antal | Innehåll |
 |---|---:|---|
-| Enhetstester | 89 | Datamodeller, lagring, migrering, historikregler och familjeanslutning |
-| Komponenttester | 104 | Vyernas och komponenternas logik utan webbläsare |
+| Enhetstester | 90 | Datamodeller, lagring, migrering, historikregler och familjeanslutning |
+| Komponenttester | 108 | Vyernas och komponenternas logik utan webbläsare |
 | PWA- och distributionstester | 88 | Manifest, Apps Script-API, familjebrygga, byggfiler, sidmallar och de två repona |
 | GUI/E2E-tester | 75 | Verkliga användarflöden i Chromium |
-| **Totalt** | **356** | |
+| **Totalt** | **361** | |
 
 GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den byggda appen och deploy-repot finns lokalt; annars markeras de som överhoppade.
 
@@ -133,6 +133,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_bootstrap_succeeds_when_cache_write_fails` | En lyckad nätverkssynkning visas även om den lokala cache-skrivningen misslyckas. |
 | `test_bootstrap_requires_connected_device` | Bootstrap gör inget nätverksanrop från en oansluten enhet. |
 | `test_cached_bootstrap_ignores_invalid_cache` | Trasig cache ignoreras säkert och används inte som familjedata. |
+| `test_list_later_and_history_use_separate_read_actions` | Senare och Historik använder separata läsoperationer och skickar rätt enhetsautentisering. |
 | `test_invalid_local_state_does_not_make_network_request` | Trasig lokal anslutningsdata ignoreras utan att något familjeanrop görs. |
 | `test_disconnect_removes_persisted_connection` | Koppla från tar bort den separat sparade familjeanslutningen. |
 
@@ -178,6 +179,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_family_mode_does_not_reload_private_repository_view` | Ett byte till Familj startar inte om Privat/Jobb-lagringen. |
 | `test_switching_from_family_to_private_replaces_family_view` | Ett direkt byte från Familj till Privat ersätter anslutningsvyn med den privata sidan. |
 | `test_switching_from_family_to_work_replaces_family_view` | Ett direkt byte från Familj till Jobb ersätter anslutningsvyn med jobbsidan. |
+| `test_connected_family_uses_separate_bottom_pages` | En ansluten Familj använder separata vyer för Checklista, Snabblistan, Historik och Senare. |
 
 ### Tidigt appskal — `tests/components/test_startup_view.py`
 
@@ -218,6 +220,14 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_row_exposes_assignee_and_overdue_deadline` | Den kompakta raden visar ansvarig och röd förseningsmarkering. |
 | `test_all_and_mine_filters_sort_and_count_tasks` | Alla/Mina filtrerar, räknar och sorterar Aktuell-listan enligt familjereglerna. |
 | `test_empty_mine_filter_has_clear_message` | Ett tomt Mina-filter ger ett tydligt meddelande. |
+
+### Familjens övriga läsvyer — `tests/components/test_family_task_pages.py`
+
+| Testfall | Vad testet kontrollerar |
+|---|---|
+| `test_later_page_loads_separate_endpoint` | Familjens Senare-vy använder `listLater` och visar ett tydligt tomläge. |
+| `test_history_page_has_no_restore_action` | Familjens Historik använder `listHistory` och saknar återställningsåtgärd. |
+| `test_favorites_page_renders_bootstrap_favorites` | Familjens Snabblista visar aktiva favoriter från bootstrap. |
 
 ### Snabbinmatning — `tests/components/test_quick_add.py`
 
@@ -372,7 +382,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_service_account_private_key_stays_server_side` | Servicekontots privata nyckel används bara på serversidan och förekommer aldrig i iframe-klienten. |
 | `test_member_identity_comes_from_device_token` | Servern härleder medlemmen från enhetsnyckeln och accepterar inte ett självrapporterat namn från klienten. |
 | `test_rejects_wrong_key_before_action_dispatch` | Fel enhetsnyckel nekas innan någon API-åtgärd körs. |
-| `test_supports_ping_bootstrap_later_and_probe_operations` | API:t har ping, separat bootstrap/Senare och dubblettskyddad provskrivning. |
+| `test_supports_ping_bootstrap_later_history_and_probe_operations` | API:t har ping, bootstrap, separat Senare/Historik och dubblettskyddad provskrivning. |
 | `test_all_api_responses_use_stable_envelope` | Alla API-svar använder samma fält för data, fel, servertid och version. |
 | `test_bootstrap_reads_only_current_tasks_members_and_favorites` | Normal Familj-start läser bara Aktuell, aktiva medlemmar och aktiva favoriter. |
 | `test_bootstrap_does_not_read_history_sheet` | Historik hämtas aldrig i normal bootstrap. |

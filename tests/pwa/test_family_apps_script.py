@@ -43,10 +43,13 @@ class FamilyAppsScriptTests(unittest.TestCase):
         dispatch = self.code.index("switch (request.action)")
         self.assertLess(rejection, dispatch)
 
-    def test_supports_ping_bootstrap_later_and_probe_operations(self):
+    def test_supports_ping_bootstrap_later_history_and_probe_operations(self):
         self.assertIn('case "ping"', self.code)
         self.assertIn('case "bootstrap"', self.code)
         self.assertIn('case "listLater"', self.code)
+        self.assertIn('case "listHistory"', self.code)
+        self.assertIn("function listHistoryData_()", self.code)
+        self.assertIn('task.status === "Klar"', self.code)
         self.assertIn('case "probeWrite"', self.code)
         self.assertIn('case "probeRead"', self.code)
         self.assertIn('=== requestId', self.code)

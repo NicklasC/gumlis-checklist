@@ -56,6 +56,8 @@ function handleRequest(request) {
         return successResponse_(bootstrapData_(), apiVersion);
       case "listLater":
         return successResponse_(listLaterData_(), apiVersion);
+      case "listHistory":
+        return successResponse_(listHistoryData_(), apiVersion);
       case "probeWrite":
         return successResponse_(probeWrite_(request, member), apiVersion);
       case "probeRead":
@@ -188,6 +190,20 @@ function listLaterData_() {
   return {
     tasks: parsed.tasks.filter(function (task) {
       return task.status === "Senare";
+    }),
+    invalidRows: parsed.invalidRows.filter(function (issue) {
+      return issue.sheet === TASKS_SHEET_NAME;
+    }),
+  };
+}
+
+function listHistoryData_() {
+  const rows = readFamilyRanges_();
+  const parsed = parseFamilyRows_(rows);
+  const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
+  return {
+    tasks: parsed.tasks.filter(function (task) {
+      return task.status === "Klar" && task.completed_at && Date.parse(task.completed_at) >= cutoff;
     }),
     invalidRows: parsed.invalidRows.filter(function (issue) {
       return issue.sheet === TASKS_SHEET_NAME;

@@ -135,6 +135,9 @@ class MainView(ft.Container):
         self.view_later = None
         self.view_family = None
         self.view_family_current = None
+        self.view_family_favorites = None
+        self.view_family_history = None
+        self.view_family_later = None
         self.family_member = None
         
         # Container to hold the active view
@@ -229,10 +232,11 @@ class MainView(ft.Container):
         """Switches global mode and triggers active view updates."""
         self.current_mode = mode
         if mode == FAMILY_MODE:
-            if self.view_family_current is not None and self.family_member is not None:
-                self.content_area.content = self.view_family_current
+            if self.family_member is not None and self.view_family is not None:
+                view = self._ensure_family_page(self.nav_bar.selected_index)
+                self.content_area.content = view
                 self.content_area.update()
-                self.view_family_current.activate()
+                view.activate()
                 return
             view = self._ensure_family_view()
             self.content_area.content = view
@@ -245,7 +249,7 @@ class MainView(ft.Container):
         """Switches screens and reloads their respective data for reactive UI synchronization."""
         idx = int(e.data)
         if self.current_mode == FAMILY_MODE:
-            view = self.view_family_current or self._ensure_family_view()
+            view = self._ensure_family_page(idx)
             self.content_area.content = view
             self.content_area.update()
             view.activate()
@@ -305,15 +309,46 @@ class MainView(ft.Container):
         return self.view_family
 
     def _handle_family_connected(self, member: str):
-        from src.views.family_current_view import FamilyCurrentView
-
         self.family_member = member
-        if self.view_family_current is None:
-            repository = self.view_family.repository
-            self.view_family_current = FamilyCurrentView(repository, member)
-        self.content_area.content = self.view_family_current
+        view = self._ensure_family_page(self.nav_bar.selected_index)
+        self.content_area.content = view
         self.content_area.update()
-        self.view_family_current.activate()
+        view.activate()
+
+    def _ensure_family_page(self, idx):
+        if self.family_member is None or self.view_family is None:
+            return self._ensure_family_view()
+        repository = self.view_family.repository
+        if idx == 0:
+            if self.view_family_current is None:
+                from src.views.family_current_view import FamilyCurrentView
+
+                self.view_family_current = FamilyCurrentView(repository, self.family_member)
+            return self.view_family_current
+        if idx == 1:
+            if self.view_family_favorites is None:
+                from src.views.family_favorites_view import FamilyFavoritesView
+
+                current_view = self._ensure_family_page(0)
+                self.view_family_favorites = FamilyFavoritesView(
+                    repository,
+                    self.family_member,
+                    bootstrap_provider=current_view,
+                )
+            return self.view_family_favorites
+        if idx == 2:
+            if self.view_family_history is None:
+                from src.views.family_task_page import FamilyHistoryView
+
+                self.view_family_history = FamilyHistoryView(repository, self.family_member)
+            return self.view_family_history
+        if idx == 3:
+            if self.view_family_later is None:
+                from src.views.family_task_page import FamilyLaterView
+
+                self.view_family_later = FamilyLaterView(repository, self.family_member)
+            return self.view_family_later
+        raise ValueError(f"Unknown family navigation destination: {idx}")
 
     @staticmethod
     def _reload_view(idx, view):

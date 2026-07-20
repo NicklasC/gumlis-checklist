@@ -7,7 +7,7 @@ from typing import Awaitable, Callable, Optional
 
 from pydantic import ValidationError
 
-from src.models.family import FAMILY_MEMBERS, FamilyBootstrap, FamilyConnection
+from src.models.family import FAMILY_MEMBERS, FamilyBootstrap, FamilyConnection, FamilyTaskPage
 
 
 Transport = Callable[[dict], Awaitable[dict]]
@@ -110,6 +110,31 @@ class FamilyRepository:
         """Return the last valid family bootstrap without contacting the server."""
         if self._load_bootstrap_cache is None:
             return None
+
+    async def list_later(self) -> FamilyTaskPage:
+        return await self._list_task_page("listLater")
+
+    async def list_history(self) -> FamilyTaskPage:
+        return await self._list_task_page("listHistory")
+
+    async def _list_task_page(self, action: str) -> FamilyTaskPage:
+        connection = await self._stored_connection()
+        if connection is None:
+            raise PermissionError("Anslut enheten till Familj först")
+        response = await self._transport(
+            {"action": action, "deviceToken": connection.device_token}
+        )
+        data = self._response_data(response)
+        try:
+            return FamilyTaskPage.model_validate(
+                {
+                    "tasks": data.get("tasks", []),
+                    "invalid_rows": data.get("invalidRows", []),
+                    "server_time": response.get("server_time"),
+                }
+            )
+        except (AttributeError, TypeError, ValidationError) as error:
+            raise ConnectionError("Familjen returnerade ogiltiga data") from error
         try:
             raw = await self._load_bootstrap_cache()
             if not raw:

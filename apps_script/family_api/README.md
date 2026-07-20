@@ -32,6 +32,7 @@ Det skrivskyddade API-kontraktet består inledningsvis av:
 - `ping`: verifierar enheten och returnerar medlemmen.
 - `bootstrap`: returnerar endast Aktuell, aktiva medlemmar, aktiva favoriter och servertid.
 - `listLater`: returnerar Senare separat.
+- `listHistory`: returnerar endast uppgifter slutförda under de senaste 14 dagarna.
 
 Historik och raderade uppgifter ingår aldrig i `bootstrap`. Ogiltiga manuella rader
 isoleras som `invalidRows` och blockerar inte övriga giltiga rader.

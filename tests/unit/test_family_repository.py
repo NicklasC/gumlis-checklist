@@ -183,6 +183,32 @@ class FamilyRepositoryTests(unittest.IsolatedAsyncioTestCase):
             await repo.bootstrap()
         self.assertEqual(requests, [])
 
+    async def test_list_later_and_history_use_separate_read_actions(self):
+        token = "n" * 48
+        stored = json.dumps({"deviceToken": token, "member": "Nicklas"})
+        requests = []
+
+        async def transport(payload):
+            requests.append(payload)
+            return {
+                "ok": True,
+                "data": {"tasks": [], "invalidRows": []},
+                "server_time": "2026-07-20T12:00:00+00:00",
+            }
+
+        storage = FakeConnectionStorage(stored)
+        repo = FamilyRepository(transport, storage.load, storage.save, storage.delete)
+
+        self.assertEqual((await repo.list_later()).tasks, [])
+        self.assertEqual((await repo.list_history()).tasks, [])
+        self.assertEqual(
+            requests,
+            [
+                {"action": "listLater", "deviceToken": token},
+                {"action": "listHistory", "deviceToken": token},
+            ],
+        )
+
     async def test_disconnect_removes_persisted_connection(self):
         repo, storage, _ = self.make_repository({"ok": True, "member": "Thor"}, "saved")
         await repo.disconnect()

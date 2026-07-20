@@ -31,8 +31,18 @@ Cache, synkstatus, Mina/Alla-filter, kompakt mobilrad och deadlineindikering.
 - [x] Sortering enligt deadline- och skapandetidsreglerna.
 - [x] 89 enhets- och 104 komponenttester samt GUI-regression godkända lokalt.
 
-Nästa delsteg måste först lägga till verklig familjenavigering för Senare,
-Snabblistan och Historik innan kontrollpunkt 3 kan slutgodkännas.
+Kontrollpunkt 3 kan slutgodkännas när 3A och 3B har verifierats tillsammans
+med cache/offline-felstater.
+
+### 3B. Familjens läs-only-nedernavigation – lokalt godkänd
+
+- [x] `listLater` och `listHistory` har separata autentiserade repositoryanrop.
+- [x] Apps Script filtrerar Historik till de senaste 14 dagarna utan att läsa en historikflik.
+- [x] Familjens Checklista, Snabblistan, Historik och Senare använder separata vyer.
+- [x] Familjens Historik saknar återställningsåtgärd.
+- [x] GUI-regressionen verifierar navigation genom alla fyra familjesidorna.
+
+Skrivoperationer och skapande från Snabblistan hör till kontrollpunkt 4 och 7.
 
 ## 4. Skapa och redigera – Väntar
 

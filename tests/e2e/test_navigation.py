@@ -43,13 +43,17 @@ class NavigationTests(BrowserTestCase):
         self.page.evaluate(
             """() => {
                 window.gumliFamilyBridge.forward = (message, worker) => {
-                    const isBootstrap = message.payload?.action === 'bootstrap';
+                    const action = message.payload?.action;
+                    const isBootstrap = action === 'bootstrap';
+                    const isTaskPage = action === 'listLater' || action === 'listHistory';
                     worker.postMessage({
                         type: 'gumli-family-response',
                         requestId: message.requestId,
                         response: {
                             ok: true,
-                            data: isBootstrap
+                            data: isTaskPage
+                                ? {tasks: [], invalidRows: []}
+                                : isBootstrap
                                 ? {
                                     tasks: [
                                         {
@@ -94,6 +98,14 @@ class NavigationTests(BrowserTestCase):
         self.assertTrue(self.page.get_by_role("button", name="Mina (1)", exact=True).is_visible())
         self.page.get_by_role("button", name="Mina (1)", exact=True).click()
         self.page.get_by_text("Gemensam familjeuppgift", exact=True).wait_for(state="hidden")
+
+        self.select_tab("Snabblistan")
+        self.page.get_by_text("Familj – Snabblistan", exact=True).wait_for(state="visible")
+        self.select_tab("Historik")
+        self.page.get_by_text("Familj – Historik", exact=True).wait_for(state="visible")
+        self.select_tab("Senare")
+        self.page.get_by_text("Familj – Senare", exact=True).wait_for(state="visible")
+        self.select_tab("Checklista")
 
         destinations = {
             "Checklista": {
