@@ -10,7 +10,7 @@ PRIVATE = "Att göra"
 WORK = "Jobb"
 
 
-def item(item_id, title, *, category=PRIVATE, checked=False, age_days=0):
+def item(item_id, title, *, category=PRIVATE, checked=False, age_days=0, completed_at=None):
     created = datetime.utcnow() - timedelta(days=age_days)
     return ChecklistItem(
         id=item_id,
@@ -18,6 +18,7 @@ def item(item_id, title, *, category=PRIVATE, checked=False, age_days=0):
         category=category,
         is_checked=checked,
         created_at=created.isoformat() + "Z",
+        completed_at=completed_at,
     )
 
 

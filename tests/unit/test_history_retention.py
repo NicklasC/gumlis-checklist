@@ -4,8 +4,15 @@ from src.models.checklist import Checklist, ChecklistItem, ChecklistsData
 from tests.support.repository_case import RepositoryTestCase
 
 
-def history_item(item_id, created_at):
-    return ChecklistItem(id=item_id, title=item_id, category="Att göra", is_checked=True, created_at=created_at)
+def history_item(item_id, created_at, completed_at=None):
+    return ChecklistItem(
+        id=item_id,
+        title=item_id,
+        category="Att göra",
+        is_checked=True,
+        created_at=created_at,
+        completed_at=completed_at,
+    )
 
 
 class HistoryRetentionTests(RepositoryTestCase):
@@ -42,3 +49,15 @@ class HistoryRetentionTests(RepositoryTestCase):
 
     def test_keeps_item_with_invalid_timestamp(self):
         self.assertIn("invalid", self.remaining_ids(self.repository_with_items([history_item("invalid", "not-a-date")])))
+
+    def test_removes_by_completion_time_instead_of_creation_time(self):
+        recent_creation = (datetime.utcnow() - timedelta(days=1)).isoformat() + "Z"
+        old_completion = (datetime.utcnow() - timedelta(days=15)).isoformat() + "Z"
+        value = history_item("completed-old", recent_creation, old_completion)
+        self.assertNotIn("completed-old", self.remaining_ids(self.repository_with_items([value])))
+
+    def test_keeps_by_completion_time_instead_of_creation_time(self):
+        old_creation = (datetime.utcnow() - timedelta(days=30)).isoformat() + "Z"
+        recent_completion = (datetime.utcnow() - timedelta(days=1)).isoformat() + "Z"
+        value = history_item("completed-recent", old_creation, recent_completion)
+        self.assertIn("completed-recent", self.remaining_ids(self.repository_with_items([value])))

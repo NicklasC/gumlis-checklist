@@ -14,11 +14,11 @@ Målet med dokumentet är att en människa snabbt och enkelt ska få en övergri
 
 | Område | Antal | Innehåll |
 |---|---:|---|
-| Enhetstester | 67 | Datamodeller, lagring, migrering, historikregler och familjeanslutning |
-| Komponenttester | 95 | Vyernas och komponenternas logik utan webbläsare |
+| Enhetstester | 73 | Datamodeller, lagring, migrering, historikregler och familjeanslutning |
+| Komponenttester | 99 | Vyernas och komponenternas logik utan webbläsare |
 | PWA- och distributionstester | 79 | Manifest, Apps Script-API, familjebrygga, byggfiler, sidmallar och de två repona |
-| GUI/E2E-tester | 71 | Verkliga användarflöden i Chromium |
-| **Totalt** | **312** | |
+| GUI/E2E-tester | 72 | Verkliga användarflöden i Chromium |
+| **Totalt** | **323** | |
 
 GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den byggda appen och deploy-repot finns lokalt; annars markeras de som överhoppade.
 
@@ -31,6 +31,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_defaults_to_unchecked` | En ny uppgift är inte markerad som klar. |
 | `test_default_category_is_other` | En uppgift utan vald kategori får standardkategorin Övrigt. |
 | `test_created_at_is_generated` | En ny uppgift får automatiskt en UTC-tidsstämpel. |
+| `test_completed_at_defaults_to_none` | En ny uppgift saknar sluttid tills den markeras som klar. |
 | `test_id_is_required` | En uppgift kan inte skapas utan id. |
 | `test_title_is_required` | En uppgift kan inte skapas utan titel. |
 | `test_swedish_text_round_trips_through_json` | Svenska tecken bevaras när en uppgift sparas som JSON och läses tillbaka. |
@@ -51,6 +52,16 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_removes_item_just_outside_boundary` | En post precis utanför 14-dagarsgränsen tas bort. |
 | `test_accepts_timestamp_without_z_suffix` | En giltig tidsstämpel utan avslutande `Z` kan läsas. |
 | `test_keeps_item_with_invalid_timestamp` | En post med trasig tidsstämpel behålls i stället för att raderas av misstag. |
+| `test_removes_by_completion_time_instead_of_creation_time` | En gammal historikpost tas bort utifrån när uppgiften slutfördes, inte när den skapades. |
+| `test_keeps_by_completion_time_instead_of_creation_time` | En nyligen slutförd uppgift behålls även om själva uppgiften skapades för länge sedan. |
+
+### Tidsstämplar och kalenderdagar — `tests/unit/test_time_utils.py`
+
+| Testfall | Vad testet kontrollerar |
+|---|---|
+| `test_completion_offset_preserves_swedish_calendar_date` | Slutdatumet behåller den lokala kalenderdagen även nära midnatt. |
+| `test_legacy_z_timestamp_is_parsed_as_utc` | Äldre UTC-tidsstämplar med `Z` fortsätter att kunna läsas. |
+| `test_timestamp_can_be_normalized_for_retention` | Tidsstämplar med tidszon kan jämföras korrekt vid historikrensning. |
 
 ### Migrering av sparade data — `tests/unit/test_repository_migrations.py`
 
@@ -225,6 +236,9 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_work_mode_renders_only_work_items` | Jobbläge visar bara jobbuppgifter. |
 | `test_unchecked_items_render_before_checked_items` | Öppna uppgifter visas före klara uppgifter. |
 | `test_daily_cleanup_moves_checked_item_to_history` | Gårdagens klara uppgifter flyttas till historiken. |
+| `test_checking_item_records_completion_time` | När en uppgift bockas av registreras den faktiska sluttiden. |
+| `test_unchecking_item_clears_completion_time` | Om dagens uppgift öppnas igen tas den tidigare sluttiden bort. |
+| `test_daily_cleanup_preserves_creation_and_completion_times` | Nästa dags städning arkiverar utan att skriva över skapad tid eller slutdatum. |
 | `test_daily_cleanup_keeps_unchecked_item_active` | Öppna uppgifter ligger kvar efter den dagliga städningen. |
 
 ### Snabblistan/favoriter — `tests/components/test_templates_view.py`
@@ -268,6 +282,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_work_empty_state` | Jobbhistorik visar rätt tommeddelande. |
 | `test_private_mode_filters_work_history` | Jobbhistorik visas inte i privat läge. |
 | `test_history_creates_date_header_and_card` | Historik med innehåll får både datumrubrik och uppgiftskort. |
+| `test_history_groups_by_completion_date_not_creation_date` | Historiken grupperar uppgiften under dagen den blev klar, inte dagen den skapades. |
 | `test_restore_removes_item_from_history` | En återställd uppgift tas bort från historiken. |
 | `test_restore_adds_unchecked_item_to_active` | En återställd uppgift läggs tillbaka som öppen i checklistan. |
 | `test_restore_preserves_category` | En återställd uppgift behåller Privat eller Jobb. |
@@ -450,6 +465,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_private_empty_state` | Användaren öppnar tom privat historik och ser ett tydligt meddelande. | Användaren ska förstå att historiken är tom och inte trasig. |
 | `test_work_empty_state` | Användaren öppnar tom jobbhistorik och ser ett tydligt meddelande. | Samma tydlighet behövs i jobbläget. |
 | `test_history_page_has_no_restore_button_when_empty` | Ingen återställningsknapp visas när historiken är tom. | Användaren ska inte erbjudas en åtgärd som saknar mål. |
+| `test_completed_item_uses_completion_day_after_next_day_cleanup` | Användaren skapar och slutför en uppgift, nästa dags start arkiverar den och Historik visar den under Igår. | Slutdatumet får inte ersättas av dagen då appens städning körs. |
 
 ### Sparade data — `tests/e2e/test_persistence.py`
 

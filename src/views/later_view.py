@@ -262,6 +262,7 @@ class LaterView(ft.Container):
         active_list = self.repo.get_checklist("active_list")
         if active_list:
             item.is_checked = False
+            item.completed_at = None
             item.created_at = datetime.utcnow().isoformat() + "Z"
             active_list.items.append(item)
             self.repo.save_checklist(active_list)

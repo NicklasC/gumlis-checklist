@@ -8,6 +8,7 @@ class ChecklistItem(BaseModel):
     is_checked: bool = False
     category: str = "Övrigt"
     created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
+    completed_at: Optional[str] = None
 
 class Checklist(BaseModel):
     id: str

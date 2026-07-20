@@ -1,13 +1,14 @@
 import os
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from threading import Lock
 
 from src.core.config import JSON_DB_PATH, HISTORY_RETENTION_DAYS, DEFAULT_CATEGORIES
 from src.core.repository import BaseRepository
 from src.models.checklist import Checklist, ChecklistItem, CommonGroup, ChecklistsData
+from src.core.time_utils import history_timestamp, timestamp_as_utc
 
 logger = logging.getLogger(__name__)
 
@@ -221,7 +222,7 @@ class JsonChecklistRepository(BaseRepository):
             if not history_checklist:
                 return
 
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             cutoff = now - timedelta(days=HISTORY_RETENTION_DAYS)
             
             original_count = len(history_checklist.items)
@@ -229,18 +230,11 @@ class JsonChecklistRepository(BaseRepository):
             
             for item in history_checklist.items:
                 try:
-                    # Parse created_at. Handled with 'Z' suffix or without.
-                    # Pydantic generated isoformat will end with Z
-                    dt_str = item.created_at
-                    if dt_str.endswith("Z"):
-                        dt_str = dt_str[:-1]
-                    
-                    item_dt = datetime.fromisoformat(dt_str)
-                    
-                    if item_dt >= cutoff:
+                    item_dt = timestamp_as_utc(history_timestamp(item))
+                    if item_dt is None or item_dt >= cutoff:
                         retained_items.append(item)
                 except Exception as e:
-                    logger.error(f"Error parsing item date {item.created_at} for item {item.id}: {e}")
+                    logger.error(f"Error parsing item date for item {item.id}: {e}")
                     # If date parsing fails, keep the item just to be safe
                     retained_items.append(item)
             

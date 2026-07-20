@@ -15,6 +15,9 @@ class ChecklistItemModelTests(unittest.TestCase):
     def test_created_at_is_generated(self):
         self.assertTrue(ChecklistItem(id="1", title="Test").created_at.endswith("Z"))
 
+    def test_completed_at_defaults_to_none(self):
+        self.assertIsNone(ChecklistItem(id="1", title="Test").completed_at)
+
     def test_id_is_required(self):
         with self.assertRaises(ValidationError):
             ChecklistItem(title="Test")

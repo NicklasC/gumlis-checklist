@@ -7,6 +7,7 @@ from src.core.theme import (
     EMERALD_GREEN, MINT_GREEN, CATEGORY_COLORS,
     glass_card_style, SURFACE_COLOR, border_all
 )
+from src.core.time_utils import now_local_iso
 from src.models.checklist import Checklist, ChecklistItem
 from src.views.components.item_card import ItemCard
 from src.views.components.quick_add import QuickAdd
@@ -130,9 +131,10 @@ class ChecklistView(ft.Container):
                     items=[]
                 )
             
-            now_iso = datetime.utcnow().isoformat() + "Z"
+            completed_at = now_local_iso()
             for item in checked_items:
-                item.created_at = now_iso
+                if not item.completed_at:
+                    item.completed_at = completed_at
                 item.is_checked = True
                 history_list.items.append(item)
                 
@@ -343,6 +345,7 @@ class ChecklistView(ft.Container):
         self._refresh_checklist_items()
 
     def _handle_item_check(self, item: ChecklistItem):
+        item.completed_at = now_local_iso() if item.is_checked else None
         self.repo.save_checklist(self.active_list)
         self._refresh_checklist_items()
 
@@ -363,6 +366,7 @@ class ChecklistView(ft.Container):
             later_list = Checklist(id="later_list", title="Senare", items=[])
             
         item.is_checked = False
+        item.completed_at = None
         item.created_at = datetime.utcnow().isoformat() + "Z"
         later_list.items.append(item)
         self.repo.save_checklist(later_list)

@@ -42,6 +42,16 @@ class HistoryViewTests(unittest.TestCase):
         view, *_ = self.make_view(items=[item("p", "Private", checked=True)])
         self.assertEqual(len(view.history_container.controls), 2)
 
+    def test_history_groups_by_completion_date_not_creation_date(self):
+        value = item(
+            "p",
+            "Private",
+            checked=True,
+            completed_at=(date.today() - timedelta(days=1)).isoformat() + "T21:15:00+02:00",
+        )
+        view, *_ = self.make_view(items=[value])
+        self.assertEqual(view.history_container.controls[0].content.value, "IGÅR")
+
     def test_restore_removes_item_from_history(self):
         value = item("one", "One", checked=True)
         view, _, _ = self.make_view(items=[value])

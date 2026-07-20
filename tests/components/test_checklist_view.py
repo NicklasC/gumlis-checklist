@@ -1,5 +1,6 @@
 import unittest
 from datetime import date, timedelta
+from unittest.mock import patch
 
 from src.models.checklist import Checklist
 from src.views.checklist_view import ChecklistView
@@ -96,6 +97,44 @@ class ChecklistViewTests(unittest.TestCase):
         view.active_list.last_cleaned_date = (date.today() - timedelta(days=1)).isoformat()
         view._load_data_and_clean()
         self.assertEqual(repo.get_checklist("history_list").items[0].id, "checked")
+
+    def test_checking_item_records_completion_time(self):
+        value = item("checked", "Checked")
+        view, _ = self.make_view(items=[value])
+        value.is_checked = True
+        with patch(
+            "src.views.checklist_view.now_local_iso",
+            return_value="2026-07-19T21:15:00+02:00",
+        ):
+            view._handle_item_check(value)
+        self.assertEqual(value.completed_at, "2026-07-19T21:15:00+02:00")
+
+    def test_unchecking_item_clears_completion_time(self):
+        value = item(
+            "checked",
+            "Checked",
+            checked=True,
+            completed_at="2026-07-19T21:15:00+02:00",
+        )
+        view, _ = self.make_view(items=[value])
+        value.is_checked = False
+        view._handle_item_check(value)
+        self.assertIsNone(value.completed_at)
+
+    def test_daily_cleanup_preserves_creation_and_completion_times(self):
+        value = item(
+            "checked",
+            "Checked",
+            checked=True,
+            age_days=5,
+            completed_at="2026-07-19T21:15:00+02:00",
+        )
+        original_creation = value.created_at
+        view, repo = self.make_view(items=[value])
+        view._perform_daily_cleanup("2026-07-20")
+        archived = repo.get_checklist("history_list").items[0]
+        self.assertEqual(archived.created_at, original_creation)
+        self.assertEqual(archived.completed_at, "2026-07-19T21:15:00+02:00")
 
     def test_daily_cleanup_keeps_unchecked_item_active(self):
         unchecked = item("open", "Open")

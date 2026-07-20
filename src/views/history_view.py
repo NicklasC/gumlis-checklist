@@ -6,6 +6,7 @@ from src.core.theme import (
     EMERALD_GREEN, MINT_GREEN, CATEGORY_COLORS,
     glass_card_style, SURFACE_COLOR, TEXT_DISABLED, border_all
 )
+from src.core.time_utils import history_date, history_timestamp
 from src.models.checklist import ChecklistItem, Checklist
 
 class HistoryView(ft.Container):
@@ -102,10 +103,7 @@ class HistoryView(ft.Container):
         grouped_items = {}
         for item in items_to_render:
             try:
-                dt_str = item.created_at
-                if dt_str.endswith("Z"):
-                    dt_str = dt_str[:-1]
-                item_date = datetime.fromisoformat(dt_str).date()
+                item_date = history_date(item)
             except Exception:
                 item_date = date.today()
             
@@ -116,7 +114,7 @@ class HistoryView(ft.Container):
 
         for day in sorted_dates:
             day_items = grouped_items[day]
-            day_items.sort(key=lambda x: x.created_at, reverse=True)
+            day_items.sort(key=history_timestamp, reverse=True)
             
             date_header_str = self._format_swedish_date(day)
             
@@ -224,6 +222,7 @@ class HistoryView(ft.Container):
         active_list = self.repo.get_checklist("active_list")
         if active_list:
             item.is_checked = False
+            item.completed_at = None
             item.created_at = datetime.utcnow().isoformat() + "Z"
             active_list.items.append(item)
             self.repo.save_checklist(active_list)
