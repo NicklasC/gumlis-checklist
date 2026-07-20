@@ -35,19 +35,50 @@ class FamilyAppsScriptTests(unittest.TestCase):
 
     def test_member_identity_comes_from_device_token(self):
         self.assertIn("const member = authenticateDevice_(request?.deviceToken)", self.code)
-        self.assertIn("probeWrite_(request, apiVersion, member)", self.code)
+        self.assertIn("probeWrite_(request, member)", self.code)
         self.assertNotIn("request.member", self.code)
 
     def test_rejects_wrong_key_before_action_dispatch(self):
-        rejection = self.code.index('error: "UNAUTHORIZED"')
+        rejection = self.code.index('failureResponse_("UNAUTHORIZED"')
         dispatch = self.code.index("switch (request.action)")
         self.assertLess(rejection, dispatch)
 
-    def test_supports_ping_read_and_idempotent_write_probe(self):
+    def test_supports_ping_bootstrap_later_and_probe_operations(self):
         self.assertIn('case "ping"', self.code)
+        self.assertIn('case "bootstrap"', self.code)
+        self.assertIn('case "listLater"', self.code)
         self.assertIn('case "probeWrite"', self.code)
         self.assertIn('case "probeRead"', self.code)
         self.assertIn('=== requestId', self.code)
+
+    def test_all_api_responses_use_stable_envelope(self):
+        for field in ("ok", "data", "error", "server_time", "api_version"):
+            self.assertIn(field + ":", self.code)
+        self.assertIn("successResponse_", self.code)
+        self.assertIn("failureResponse_", self.code)
+
+    def test_bootstrap_reads_only_current_tasks_members_and_favorites(self):
+        self.assertIn('task.status === "Aktuell"', self.code)
+        self.assertIn("MEMBERS_SHEET_NAME", self.code)
+        self.assertIn("FAVORITES_SHEET_NAME", self.code)
+        bootstrap = self.code[self.code.index("function bootstrapData_") : self.code.index("function listLaterData_")]
+        self.assertNotIn('"Klar"', bootstrap)
+        self.assertNotIn('"Raderad"', bootstrap)
+
+    def test_bootstrap_does_not_read_history_sheet(self):
+        self.assertNotIn("HISTORY_SHEET_NAME", self.code)
+        self.assertNotIn("Historik'!", self.code)
+
+    def test_invalid_sheet_rows_are_isolated(self):
+        self.assertIn('error: "INVALID_ROW"', self.code)
+        self.assertIn("parsed.push(parser(row || []))", self.code)
+        self.assertIn("invalidRows.push", self.code)
+
+    def test_setup_uses_single_status_based_tasks_sheet(self):
+        self.assertIn("function setupFamilySheets()", self.code)
+        self.assertIn('TASKS_SHEET_NAME = "Uppgifter"', self.code)
+        self.assertIn('"Status"', self.code)
+        self.assertNotIn('TASKS_SHEET_NAME = "Aktiva"', self.code)
 
     def test_serializes_probe_writes_with_script_lock(self):
         self.assertIn("LockService.getScriptLock()", self.code)

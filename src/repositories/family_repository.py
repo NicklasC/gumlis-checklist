@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 from typing import Awaitable, Callable, Optional
 
-from src.models.family import FAMILY_MEMBERS, FamilyConnection
+from pydantic import ValidationError
+
+from src.models.family import FAMILY_MEMBERS, FamilyBootstrap, FamilyConnection
 
 
 Transport = Callable[[dict], Awaitable[dict]]
@@ -61,16 +63,8 @@ class FamilyRepository:
         return token
 
     async def resume(self) -> Optional[FamilyConnection]:
-        raw = await self._load_connection()
-        if not raw:
-            return None
-        try:
-            stored = json.loads(raw)
-            connection = FamilyConnection(
-                device_token=str(stored["deviceToken"]),
-                member=str(stored["member"]),
-            )
-        except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+        connection = await self._stored_connection()
+        if connection is None:
             return None
 
         response = await self._transport(
@@ -80,6 +74,27 @@ class FamilyRepository:
         if verified.member != connection.member:
             await self._save(verified)
         return verified
+
+    async def bootstrap(self) -> FamilyBootstrap:
+        connection = await self._stored_connection()
+        if connection is None:
+            raise PermissionError("Anslut enheten till Familj först")
+        response = await self._transport(
+            {"action": "bootstrap", "deviceToken": connection.device_token}
+        )
+        data = self._response_data(response)
+        try:
+            return FamilyBootstrap.model_validate(
+                {
+                    "tasks": data.get("tasks", []),
+                    "members": data.get("members", []),
+                    "favorites": data.get("favorites", []),
+                    "invalid_rows": data.get("invalidRows", []),
+                    "server_time": response.get("server_time"),
+                }
+            )
+        except (AttributeError, TypeError, ValidationError) as error:
+            raise ConnectionError("Familjen returnerade ogiltiga data") from error
 
     async def disconnect(self) -> None:
         await self._delete_connection()
@@ -92,14 +107,39 @@ class FamilyRepository:
             )
         )
 
+    async def _stored_connection(self) -> Optional[FamilyConnection]:
+        raw = await self._load_connection()
+        if not raw:
+            return None
+        try:
+            stored = json.loads(raw)
+            return FamilyConnection(
+                device_token=str(stored["deviceToken"]),
+                member=str(stored["member"]),
+            )
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+            return None
+
     @staticmethod
-    def _connection_from_response(device_token: str, response: dict) -> FamilyConnection:
+    def _response_data(response: dict) -> dict:
         if not isinstance(response, dict) or not response.get("ok"):
             error = response.get("error") if isinstance(response, dict) else None
             if error == "UNAUTHORIZED":
                 raise PermissionError("Enhetsnyckeln känns inte igen")
+            if error == "INVALID_INPUT":
+                raise ValueError("Familjen kunde inte läsa de angivna uppgifterna")
             raise ConnectionError("Familjen kunde inte nås just nu")
-        member = str(response.get("member") or "")
+        data = response.get("data")
+        if data is None:
+            return response
+        if not isinstance(data, dict):
+            raise ConnectionError("Familjen returnerade ogiltiga data")
+        return data
+
+    @staticmethod
+    def _connection_from_response(device_token: str, response: dict) -> FamilyConnection:
+        data = FamilyRepository._response_data(response)
+        member = str(data.get("member") or "")
         if member not in FAMILY_MEMBERS:
             raise ConnectionError("Servern returnerade en okänd familjemedlem")
         return FamilyConnection(device_token=device_token, member=member)

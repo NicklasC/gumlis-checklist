@@ -14,11 +14,11 @@ Målet med dokumentet är att en människa snabbt och enkelt ska få en övergri
 
 | Område | Antal | Innehåll |
 |---|---:|---|
-| Enhetstester | 74 | Datamodeller, lagring, migrering, historikregler och familjeanslutning |
+| Enhetstester | 85 | Datamodeller, lagring, migrering, historikregler och familjeanslutning |
 | Komponenttester | 100 | Vyernas och komponenternas logik utan webbläsare |
-| PWA- och distributionstester | 79 | Manifest, Apps Script-API, familjebrygga, byggfiler, sidmallar och de två repona |
+| PWA- och distributionstester | 84 | Manifest, Apps Script-API, familjebrygga, byggfiler, sidmallar och de två repona |
 | GUI/E2E-tester | 73 | Verkliga användarflöden i Chromium |
-| **Totalt** | **326** | |
+| **Totalt** | **342** | |
 
 GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den byggda appen och deploy-repot finns lokalt; annars markeras de som överhoppade.
 
@@ -41,6 +41,19 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_last_cleaned_date_defaults_to_none` | En ny checklista saknar städdatum tills städning har gjorts. |
 | `test_common_group_items_are_not_shared` | Två favoritgrupper får var sin separata lista med favoriter. |
 | `test_checklists_data_defaults_to_empty_lists` | Ett tomt dataobjekt startar med tomma checklistor och favoritgrupper. |
+
+### Familjemodeller — `tests/unit/test_family_models.py`
+
+| Testfall | Vad testet kontrollerar |
+|---|---|
+| `test_parses_swedish_sheet_values` | Svenska statusvärden, deadline och tidsstämplar blir typade familjedata. |
+| `test_all_is_valid_default_assignee` | Alla är en giltig standardansvarig. |
+| `test_rejects_unknown_assignee` | Ett okänt ansvarigvärde avvisas. |
+| `test_completed_task_requires_both_completion_fields` | Klar kräver både faktisk utförare och sluttid. |
+| `test_completed_task_accepts_actual_completer` | En annan familjemedlem än ansvarig får vara faktisk utförare. |
+| `test_non_completed_task_rejects_stale_completion_fields` | Aktiva uppgifter får inte bära kvar gamla slutförandefält. |
+| `test_accepts_valid_read_only_bootstrap` | Ett komplett skrivskyddat bootstrap-svar kan valideras. |
+| `test_rejects_unknown_member` | Okända personer isoleras av modellvalideringen. |
 
 ### Historikens lagringstid — `tests/unit/test_history_retention.py`
 
@@ -110,9 +123,12 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | Testfall | Vad testet kontrollerar |
 |---|---|
 | `test_connect_verifies_and_persists_server_derived_member` | En ny enhetsnyckel sparas först efter att servern har godkänt den och returnerat rätt medlem. |
+| `test_connect_accepts_stable_response_envelope` | Anslutning kan läsa API:ts stabila svarskuvert. |
 | `test_wrong_key_is_not_persisted` | En felaktig enhetsnyckel nekas och sparas aldrig på enheten. |
 | `test_connect_removes_mobile_clipboard_artifacts` | Osynliga tecken, radbrytningar och omgivande citattecken från mobilens urklipp tas bort före verifiering. |
 | `test_resume_reuses_persisted_connection` | En tidigare godkänd anslutning verifieras på nytt och återanvänds vid nästa öppning. |
+| `test_bootstrap_parses_tasks_members_and_favorites` | Bootstrap validerar uppgifter, medlemmar, favoriter och servertid. |
+| `test_bootstrap_requires_connected_device` | Bootstrap gör inget nätverksanrop från en oansluten enhet. |
 | `test_invalid_local_state_does_not_make_network_request` | Trasig lokal anslutningsdata ignoreras utan att något familjeanrop görs. |
 | `test_disconnect_removes_persisted_connection` | Koppla från tar bort den separat sparade familjeanslutningen. |
 
@@ -343,7 +359,12 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_service_account_private_key_stays_server_side` | Servicekontots privata nyckel används bara på serversidan och förekommer aldrig i iframe-klienten. |
 | `test_member_identity_comes_from_device_token` | Servern härleder medlemmen från enhetsnyckeln och accepterar inte ett självrapporterat namn från klienten. |
 | `test_rejects_wrong_key_before_action_dispatch` | Fel enhetsnyckel nekas innan någon API-åtgärd körs. |
-| `test_supports_ping_read_and_idempotent_write_probe` | Spiken har ping, läsning och dubblettskyddad provskrivning. |
+| `test_supports_ping_bootstrap_later_and_probe_operations` | API:t har ping, separat bootstrap/Senare och dubblettskyddad provskrivning. |
+| `test_all_api_responses_use_stable_envelope` | Alla API-svar använder samma fält för data, fel, servertid och version. |
+| `test_bootstrap_reads_only_current_tasks_members_and_favorites` | Normal Familj-start läser bara Aktuell, aktiva medlemmar och aktiva favoriter. |
+| `test_bootstrap_does_not_read_history_sheet` | Historik hämtas aldrig i normal bootstrap. |
+| `test_invalid_sheet_rows_are_isolated` | En felaktig manuell rad blockerar inte övriga giltiga rader. |
+| `test_setup_uses_single_status_based_tasks_sheet` | Produktionsstrukturen använder ett Uppgifter-blad med status på radnivå. |
 | `test_serializes_probe_writes_with_script_lock` | Samtidiga provskrivningar skyddas med Apps Script-låsning. |
 | `test_probe_sheet_is_separate_from_family_tasks` | Provdata skrivs till ett avskilt tekniskt blad. |
 | `test_direct_post_returns_json_without_putting_key_in_url` | Direkt POST ger JSON och lägger aldrig enhetsnyckeln i URL:en. |

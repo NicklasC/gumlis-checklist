@@ -21,6 +21,23 @@ Följande värden konfigureras i Apps Script-projektets inställningar och får 
 5. Distribuera som webbapp som körs som den användare som distribuerar och tillåter anonym åtkomst.
 6. Testa `ping`, `probeWrite` och `probeRead` med rätt och fel enhetsnyckel.
 
+## Familj version 1
+
+`setupFamilySheets` skapar den produktionsnära strukturen med ett statusbaserat blad
+`Uppgifter` samt bladen `Medlemmar` och `Favoriter`. Funktionen ska bara köras i det
+redan beslutade privata arket `gumlis-checklist-familj`.
+
+Det skrivskyddade API-kontraktet består inledningsvis av:
+
+- `ping`: verifierar enheten och returnerar medlemmen.
+- `bootstrap`: returnerar endast Aktuell, aktiva medlemmar, aktiva favoriter och servertid.
+- `listLater`: returnerar Senare separat.
+
+Historik och raderade uppgifter ingår aldrig i `bootstrap`. Ogiltiga manuella rader
+isoleras som `invalidRows` och blockerar inte övriga giltiga rader.
+
+Alla svar använder fälten `ok`, `data`, `error`, `server_time` och `api_version`.
+
 `doPost` finns för ett direkt CORS-test. `doGet` levererar en iframe-brygga som använder `google.script.run` om direkt browser-POST inte fungerar. Enhetsnyckeln skickas i requestens body eller `postMessage`, aldrig i URL:en.
 
 ## Google-behörighet och faktisk avgränsning

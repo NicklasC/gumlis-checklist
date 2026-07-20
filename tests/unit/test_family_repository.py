@@ -38,6 +38,17 @@ class FamilyRepositoryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(requests, [{"action": "ping", "deviceToken": token}])
         self.assertEqual(json.loads(storage.value)["member"], "Nicklas")
 
+    async def test_connect_accepts_stable_response_envelope(self):
+        response = {
+            "ok": True,
+            "data": {"member": "Nicklas"},
+            "error": None,
+            "server_time": "2026-07-20T19:00:00+02:00",
+            "api_version": "family-v1",
+        }
+        repo, _, _ = self.make_repository(response)
+        self.assertEqual((await repo.connect("n" * 48)).member, "Nicklas")
+
     async def test_wrong_key_is_not_persisted(self):
         repo, storage, _ = self.make_repository({"ok": False, "error": "UNAUTHORIZED"})
         with self.assertRaises(PermissionError):
@@ -59,6 +70,49 @@ class FamilyRepositoryTests(unittest.IsolatedAsyncioTestCase):
         connection = await repo.resume()
         self.assertEqual(connection.member, "Ida")
         self.assertEqual(requests[0]["deviceToken"], token)
+
+    async def test_bootstrap_parses_tasks_members_and_favorites(self):
+        token = "n" * 48
+        stored = json.dumps({"deviceToken": token, "member": "Nicklas"})
+        response = {
+            "ok": True,
+            "data": {
+                "tasks": [
+                    {
+                        "id": "family-1",
+                        "title": "Töm soporna",
+                        "status": "Aktuell",
+                        "assignee": "Alla",
+                        "assigned_by": "Nicklas",
+                        "assigned_at": "2026-07-20T18:00:00+02:00",
+                        "created_by": "Nicklas",
+                        "created_at": "2026-07-20T18:00:00+02:00",
+                        "deadline": None,
+                        "updated_by": "Nicklas",
+                        "updated_at": "2026-07-20T18:00:00+02:00",
+                        "completed_by": None,
+                        "completed_at": None,
+                        "version": 1,
+                    }
+                ],
+                "members": [{"name": "Nicklas", "active": True, "sort_order": 1}],
+                "favorites": [],
+                "invalidRows": [],
+            },
+            "error": None,
+            "server_time": "2026-07-20T19:00:00+02:00",
+            "api_version": "family-v1",
+        }
+        repo, _, requests = self.make_repository(response, stored)
+        bootstrap = await repo.bootstrap()
+        self.assertEqual(bootstrap.tasks[0].title, "Töm soporna")
+        self.assertEqual(requests, [{"action": "bootstrap", "deviceToken": token}])
+
+    async def test_bootstrap_requires_connected_device(self):
+        repo, _, requests = self.make_repository({"ok": True})
+        with self.assertRaises(PermissionError):
+            await repo.bootstrap()
+        self.assertEqual(requests, [])
 
     async def test_disconnect_removes_persisted_connection(self):
         repo, storage, _ = self.make_repository({"ok": True, "member": "Thor"}, "saved")

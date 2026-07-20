@@ -8,7 +8,18 @@ const CONFIG_KEYS = Object.freeze({
 
 const DEFAULT_API_VERSION = "family-spike-v2";
 const PROBE_SHEET_NAME = "Tekniskt test";
+const TASKS_SHEET_NAME = "Uppgifter";
+const MEMBERS_SHEET_NAME = "Medlemmar";
+const FAVORITES_SHEET_NAME = "Favoriter";
 const MEMBERS = Object.freeze(["Nicklas", "Ida", "Thor", "Johanna"]);
+const ASSIGNEES = Object.freeze(["Alla"].concat(MEMBERS));
+const ACTORS = Object.freeze(MEMBERS.concat(["Automatik", "Nicklas (Sheet)"]));
+const TASK_STATUSES = Object.freeze(["Aktuell", "Senare", "Klar", "Raderad"]);
+const TASK_HEADERS = Object.freeze([
+  "Uppgift", "Status", "Ansvarig", "Tilldelad av", "Tilldelad", "Skapad av",
+  "Skapad", "Deadline", "Senast ändrad av", "Uppdaterad", "Slutförd av",
+  "Slutförd", "ID", "Version",
+]);
 const SHEETS_API_ROOT = "https://sheets.googleapis.com/v4/spreadsheets/";
 const TOKEN_CACHE_KEY = "gumli-service-account-token-v1";
 
@@ -26,29 +37,62 @@ function doPost(event) {
     const body = JSON.parse(event?.postData?.contents || "{}");
     return jsonOutput_(handleRequest(body));
   } catch (error) {
-    return jsonOutput_({ ok: false, error: "INVALID_REQUEST" });
+    return jsonOutput_(failureResponse_("INVALID_INPUT", getApiVersion_()));
   }
 }
 
 function handleRequest(request) {
+  const apiVersion = getApiVersion_();
   const member = authenticateDevice_(request?.deviceToken);
   if (!member) {
-    return { ok: false, error: "UNAUTHORIZED" };
+    return failureResponse_("UNAUTHORIZED", apiVersion);
   }
 
-  const apiVersion =
-    PropertiesService.getScriptProperties().getProperty(CONFIG_KEYS.apiVersion) ||
-    DEFAULT_API_VERSION;
-  switch (request.action) {
-    case "ping":
-      return { ok: true, apiVersion: apiVersion, member: member };
-    case "probeWrite":
-      return probeWrite_(request, apiVersion, member);
-    case "probeRead":
-      return probeRead_(apiVersion);
-    default:
-      return { ok: false, error: "UNKNOWN_ACTION", apiVersion: apiVersion };
+  try {
+    switch (request.action) {
+      case "ping":
+        return successResponse_({ member: member }, apiVersion);
+      case "bootstrap":
+        return successResponse_(bootstrapData_(), apiVersion);
+      case "listLater":
+        return successResponse_(listLaterData_(), apiVersion);
+      case "probeWrite":
+        return successResponse_(probeWrite_(request, member), apiVersion);
+      case "probeRead":
+        return successResponse_(probeRead_(), apiVersion);
+      default:
+        return failureResponse_("INVALID_INPUT", apiVersion);
+    }
+  } catch (error) {
+    return failureResponse_("SERVER_ERROR", apiVersion);
   }
+}
+
+function getApiVersion_() {
+  return (
+    PropertiesService.getScriptProperties().getProperty(CONFIG_KEYS.apiVersion) ||
+    DEFAULT_API_VERSION
+  );
+}
+
+function successResponse_(data, apiVersion) {
+  return {
+    ok: true,
+    data: data,
+    error: null,
+    server_time: new Date().toISOString(),
+    api_version: apiVersion,
+  };
+}
+
+function failureResponse_(errorCode, apiVersion) {
+  return {
+    ok: false,
+    data: null,
+    error: errorCode,
+    server_time: new Date().toISOString(),
+    api_version: apiVersion,
+  };
 }
 
 function setupProbeSheet() {
@@ -76,6 +120,222 @@ function setupProbeSheet() {
   return { ok: true, sheet: PROBE_SHEET_NAME };
 }
 
+function setupFamilySheets() {
+  ensureSheetsExist_([TASKS_SHEET_NAME, MEMBERS_SHEET_NAME, FAVORITES_SHEET_NAME]);
+  writeValues_("'" + TASKS_SHEET_NAME + "'!A1:N1", [TASK_HEADERS]);
+  writeValues_("'" + MEMBERS_SHEET_NAME + "'!A1:C5", [
+    ["Namn", "Aktiv", "Sortering"],
+    ["Nicklas", true, 1],
+    ["Ida", true, 2],
+    ["Thor", true, 3],
+    ["Johanna", true, 4],
+  ]);
+  writeValues_("'" + FAVORITES_SHEET_NAME + "'!A1:D1", [
+    ["Uppgift", "Aktiv", "Sortering", "ID"],
+  ]);
+  return {
+    ok: true,
+    sheets: [TASKS_SHEET_NAME, MEMBERS_SHEET_NAME, FAVORITES_SHEET_NAME],
+  };
+}
+
+function ensureSheetsExist_(sheetNames) {
+  const metadata = sheetsRequest_("?fields=sheets.properties.title", { method: "get" });
+  const existing = new Set(
+    (metadata.sheets || []).map(function (sheet) {
+      return sheet?.properties?.title;
+    })
+  );
+  const requests = sheetNames
+    .filter(function (name) {
+      return !existing.has(name);
+    })
+    .map(function (name) {
+      return { addSheet: { properties: { title: name } } };
+    });
+  if (requests.length > 0) {
+    sheetsRequest_(":batchUpdate", { method: "post", payload: { requests: requests } });
+  }
+}
+
+function writeValues_(range, values) {
+  sheetsRequest_(valuesPath_(range) + "?valueInputOption=RAW", {
+    method: "put",
+    payload: { range: range, majorDimension: "ROWS", values: values },
+  });
+}
+
+function bootstrapData_() {
+  const rows = readFamilyRanges_();
+  const parsed = parseFamilyRows_(rows);
+  return {
+    tasks: parsed.tasks.filter(function (task) {
+      return task.status === "Aktuell";
+    }),
+    members: parsed.members.filter(function (member) {
+      return member.active;
+    }),
+    favorites: parsed.favorites.filter(function (favorite) {
+      return favorite.active;
+    }),
+    invalidRows: parsed.invalidRows,
+  };
+}
+
+function listLaterData_() {
+  const rows = readFamilyRanges_();
+  const parsed = parseFamilyRows_(rows);
+  return {
+    tasks: parsed.tasks.filter(function (task) {
+      return task.status === "Senare";
+    }),
+    invalidRows: parsed.invalidRows.filter(function (issue) {
+      return issue.sheet === TASKS_SHEET_NAME;
+    }),
+  };
+}
+
+function readFamilyRanges_() {
+  const ranges = [
+    "'" + TASKS_SHEET_NAME + "'!A2:N",
+    "'" + MEMBERS_SHEET_NAME + "'!A2:C",
+    "'" + FAVORITES_SHEET_NAME + "'!A2:D",
+  ];
+  const query = ranges
+    .map(function (range) {
+      return "ranges=" + encodeURIComponent(range);
+    })
+    .join("&");
+  const response = sheetsRequest_("/values:batchGet?" + query, { method: "get" });
+  const valueRanges = response.valueRanges || [];
+  return {
+    tasks: valueRanges[0]?.values || [],
+    members: valueRanges[1]?.values || [],
+    favorites: valueRanges[2]?.values || [],
+  };
+}
+
+function parseFamilyRows_(rows) {
+  const invalidRows = [];
+  const tasks = parseRows_(rows.tasks, TASKS_SHEET_NAME, parseTaskRow_, invalidRows);
+  const members = parseRows_(rows.members, MEMBERS_SHEET_NAME, parseMemberRow_, invalidRows)
+    .sort(function (left, right) { return left.sort_order - right.sort_order; });
+  const favorites = parseRows_(rows.favorites, FAVORITES_SHEET_NAME, parseFavoriteRow_, invalidRows)
+    .sort(function (left, right) { return left.sort_order - right.sort_order; });
+  return { tasks: tasks, members: members, favorites: favorites, invalidRows: invalidRows };
+}
+
+function parseRows_(rows, sheetName, parser, invalidRows) {
+  const parsed = [];
+  (rows || []).forEach(function (row, index) {
+    if ((row || []).every(function (value) { return String(value || "").trim() === ""; })) {
+      return;
+    }
+    try {
+      parsed.push(parser(row || []));
+    } catch (error) {
+      invalidRows.push({ sheet: sheetName, row: index + 2, error: "INVALID_ROW" });
+    }
+  });
+  return parsed;
+}
+
+function parseTaskRow_(row) {
+  const task = {
+    title: requiredText_(row[0]),
+    status: allowedValue_(row[1], TASK_STATUSES),
+    assignee: allowedValue_(row[2] || "Alla", ASSIGNEES),
+    assigned_by: allowedValue_(row[3], MEMBERS),
+    assigned_at: isoTimestamp_(row[4]),
+    created_by: allowedValue_(row[5], MEMBERS),
+    created_at: isoTimestamp_(row[6]),
+    deadline: optionalDate_(row[7]),
+    updated_by: allowedValue_(row[8], ACTORS),
+    updated_at: isoTimestamp_(row[9]),
+    completed_by: optionalAllowedValue_(row[10], MEMBERS),
+    completed_at: optionalTimestamp_(row[11]),
+    id: requiredText_(row[12]),
+    version: positiveInteger_(row[13]),
+  };
+  const complete = task.status === "Klar";
+  const hasCompletion = Boolean(task.completed_by && task.completed_at);
+  if (complete !== hasCompletion) {
+    throw new Error("Invalid completion fields");
+  }
+  return task;
+}
+
+function parseMemberRow_(row) {
+  return {
+    name: allowedValue_(row[0], MEMBERS),
+    active: booleanValue_(row[1]),
+    sort_order: nonNegativeInteger_(row[2]),
+  };
+}
+
+function parseFavoriteRow_(row) {
+  return {
+    title: requiredText_(row[0]),
+    active: booleanValue_(row[1]),
+    sort_order: nonNegativeInteger_(row[2]),
+    id: requiredText_(row[3]),
+  };
+}
+
+function requiredText_(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) throw new Error("Missing value");
+  return normalized;
+}
+
+function allowedValue_(value, allowed) {
+  const normalized = requiredText_(value);
+  if (!allowed.includes(normalized)) throw new Error("Invalid value");
+  return normalized;
+}
+
+function optionalAllowedValue_(value, allowed) {
+  const normalized = String(value || "").trim();
+  return normalized ? allowedValue_(normalized, allowed) : null;
+}
+
+function isoTimestamp_(value) {
+  const normalized = requiredText_(value);
+  if (isNaN(Date.parse(normalized))) throw new Error("Invalid timestamp");
+  return new Date(normalized).toISOString();
+}
+
+function optionalTimestamp_(value) {
+  return String(value || "").trim() ? isoTimestamp_(value) : null;
+}
+
+function optionalDate_(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized) || isNaN(Date.parse(normalized + "T00:00:00Z"))) {
+    throw new Error("Invalid date");
+  }
+  return normalized;
+}
+
+function booleanValue_(value) {
+  if (value === true || String(value).toLowerCase() === "true") return true;
+  if (value === false || String(value).toLowerCase() === "false") return false;
+  throw new Error("Invalid boolean");
+}
+
+function positiveInteger_(value) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) throw new Error("Invalid version");
+  return parsed;
+}
+
+function nonNegativeInteger_(value) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) throw new Error("Invalid sort order");
+  return parsed;
+}
+
 function verifyConfiguration() {
   const properties = PropertiesService.getScriptProperties();
   const missing = [
@@ -98,15 +358,15 @@ function verifyConfiguration() {
   }
 }
 
-function probeWrite_(request, apiVersion, member) {
+function probeWrite_(request, member) {
   const requestId = String(request.requestId || "").trim();
   if (!requestId || requestId.length > 128) {
-    return { ok: false, error: "INVALID_PROBE_DATA", apiVersion: apiVersion };
+    throw new Error("Invalid probe data");
   }
 
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(5000)) {
-    return { ok: false, error: "BUSY", apiVersion: apiVersion };
+    throw new Error("Probe lock unavailable");
   }
   try {
     const existingResponse = sheetsRequest_(valuesPath_("'" + PROBE_SHEET_NAME + "'!B2:B"), {
@@ -129,8 +389,6 @@ function probeWrite_(request, apiVersion, member) {
       );
     }
     return {
-      ok: true,
-      apiVersion: apiVersion,
       requestId: requestId,
       member: member,
       duplicate: existing,
@@ -140,18 +398,16 @@ function probeWrite_(request, apiVersion, member) {
   }
 }
 
-function probeRead_(apiVersion) {
+function probeRead_() {
   const response = sheetsRequest_(valuesPath_("'" + PROBE_SHEET_NAME + "'!A2:D"), {
     method: "get",
   });
   const rows = response.values || [];
   if (rows.length === 0) {
-    return { ok: true, apiVersion: apiVersion, lastProbe: null };
+    return { lastProbe: null };
   }
   const values = rows[rows.length - 1];
   return {
-    ok: true,
-    apiVersion: apiVersion,
     lastProbe: {
       timestamp: values[0] || "",
       requestId: values[1] || "",
