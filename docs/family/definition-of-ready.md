@@ -757,14 +757,14 @@ Codex-verifierat:
 - [x] Apps Script-servicekontot kan skapa testbladet och skriva dess rubrik via Google Sheets API.
 - [x] Script Properties är åter begränsade till `https://nicklasc.github.io` efter lokal verifiering.
 - [x] Ingen enhetsnyckel, servicekontonyckel eller arkbehörighet byggs in i PWA:n eller versionshanteras.
-- [x] Automatisk regression: 309/309 tester godkända.
+- [x] Automatisk regression: 326/326 tester godkända.
 - [x] Privat-startens eftermätning ligger inom prestandakravet.
 
-Nicklas-verifiering som återstår innan kontrollpunkten kan slutgodkännas:
+Nicklas-verifierat på installerad Android-PWA 2026-07-20:
 
-- [ ] Publicera den färdiga kontrollpunktsbuilden.
-- [ ] Installera eller uppdatera Gumli som PWA i Chrome på Nicklas Androidtelefon.
-- [ ] Anslut enheten med Nicklas personliga enhetsnyckel.
-- [ ] Stäng och öppna den installerade appen och kontrollera att `Ansluten som Nicklas` ligger kvar.
+- [x] Publicera den färdiga kontrollpunktsbuilden.
+- [x] Installera eller uppdatera Gumli som PWA i Chrome på Nicklas Androidtelefon.
+- [x] Anslut enheten med Nicklas personliga enhetsnyckel.
+- [x] Stäng och öppna den installerade appen och kontrollera att `Ansluten som Nicklas` ligger kvar.
 
-Full implementation av familjeuppgifter startar först när Androidkontrollen är godkänd.
+Kontrollpunkt 1 är slutgodkänd. Full implementation av familjeuppgifter kan starta.
