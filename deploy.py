@@ -46,6 +46,25 @@ def add_python_startup_bridge(python_js_path):
         python_file.write(source.replace(marker, bridge, 1))
 
 
+def add_python_worker_family_response_guard(python_worker_path):
+    """Keep Family bridge responses out of Flet's internal event channel."""
+    with open(python_worker_path, "r", encoding="utf-8") as worker_file:
+        source = worker_file.read()
+
+    marker = "self.onmessage = async (event) => {\n"
+    guard = (
+        marker
+        + '    if (event.data?.type === "gumli-family-response") {\n'
+        + "        return;\n"
+        + "    }\n"
+    )
+    if marker not in source:
+        raise RuntimeError("python-worker.js message handler could not be patched")
+
+    with open(python_worker_path, "w", encoding="utf-8", newline="\n") as worker_file:
+        worker_file.write(source.replace(marker, guard, 1))
+
+
 def add_app_archive_cache_buster(template_paths, archive_path):
     """Tie application URLs and cache names to the Python archive contents."""
     with open(archive_path, "rb") as archive_file:
@@ -106,6 +125,7 @@ def main():
     run_command(publish_cmd, cwd=source_dir)
     prune_debug_artifacts(deploy_dir)
     add_python_startup_bridge(os.path.join(deploy_dir, "python.js"))
+    add_python_worker_family_response_guard(os.path.join(deploy_dir, "python-worker.js"))
     
     print("\n--- 2. Restoring Custom Gumli PWA Container Templates ---")
     

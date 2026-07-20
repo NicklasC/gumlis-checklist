@@ -31,6 +31,12 @@ class BuildOutputTests(unittest.TestCase):
         python_host = (DEPLOY_APP / "python.js").read_text(encoding="utf-8")
         self.assertIn("__gumli_startup__:", python_host)
 
+    def test_python_worker_does_not_forward_family_responses_to_flet(self):
+        worker = (DEPLOY_APP / "python-worker.js").read_text(encoding="utf-8")
+        guard = worker.index('event.data?.type === "gumli-family-response"')
+        flet_send = worker.index("flet_js.send(event.data)")
+        self.assertLess(guard, flet_send)
+
     def test_built_manifest_is_valid_json(self):
         value = json.loads((DEPLOY_APP / "manifest.json").read_text(encoding="utf-8"))
         self.assertEqual(value["name"], "Gumli")

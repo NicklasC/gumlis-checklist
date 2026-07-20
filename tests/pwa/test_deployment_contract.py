@@ -48,6 +48,11 @@ class DeployScriptContractTests(unittest.TestCase):
         self.assertIn("add_python_startup_bridge", self.script)
         self.assertIn("__gumli_startup__:", self.script)
 
+    def test_keeps_family_responses_out_of_flet_event_channel(self):
+        self.assertIn("add_python_worker_family_response_guard", self.script)
+        self.assertIn('event.data?.type === \"gumli-family-response\"', self.script)
+        self.assertIn('os.path.join(deploy_dir, "python-worker.js")', self.script)
+
     def test_checks_deploy_repository_status(self):
         self.assertIn('run_command("git status"', self.script)
 

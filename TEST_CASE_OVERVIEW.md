@@ -16,9 +16,9 @@ Målet med dokumentet är att en människa snabbt och enkelt ska få en övergri
 |---|---:|---|
 | Enhetstester | 85 | Datamodeller, lagring, migrering, historikregler och familjeanslutning |
 | Komponenttester | 100 | Vyernas och komponenternas logik utan webbläsare |
-| PWA- och distributionstester | 85 | Manifest, Apps Script-API, familjebrygga, byggfiler, sidmallar och de två repona |
+| PWA- och distributionstester | 88 | Manifest, Apps Script-API, familjebrygga, byggfiler, sidmallar och de två repona |
 | GUI/E2E-tester | 73 | Verkliga användarflöden i Chromium |
-| **Totalt** | **343** | |
+| **Totalt** | **346** | |
 
 GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den byggda appen och deploy-repot finns lokalt; annars markeras de som överhoppade.
 
@@ -382,6 +382,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_diagnostics_never_store_request_payload_or_token` | Den säkra webbläsardiagnostiken lagrar varken anropsinnehåll eller enhetsnyckel. |
 | `test_diagnostics_reads_member_from_stable_response_envelope` | Diagnostiken läser medlemmen ur det stabila API-svarets `data`-del och stöder samtidigt äldre svar. |
 | `test_deploy_forwards_only_family_worker_messages` | Den byggda Pythonvärden vidarebefordrar endast uttryckliga familjemeddelanden till bryggan. |
+| `test_deploy_isolates_family_responses_from_flet_messages` | Familjesvar stoppas innan de kan skickas vidare som interna Flet-meddelanden och låsa gränssnittet. |
 
 ### Färdigbyggd PWA — `tests/pwa/test_build_output.py`
 
@@ -395,6 +396,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_flet_wasm_bundle_exists` | Den byggda appen innehåller Flets WebAssembly-paket. |
 | `test_python_worker_exists` | Den byggda appen innehåller Python-arbetaren. |
 | `test_python_host_forwards_startup_marks` | Den byggda Pythonvärden skickar worker-mätpunkter till startsidan. |
+| `test_python_worker_does_not_forward_family_responses_to_flet` | Det färdiga bygget stoppar familjesvar innan Flets interna meddelandekanal. |
 | `test_built_manifest_is_valid_json` | Det byggda manifestet är giltig JSON och avser Gumli. |
 | `test_built_index_uses_expected_base` | Den byggda startsidan använder `/gumlis-checklist/`. |
 | `test_built_index_uses_hashed_python_archive_url` | Startsidan hänvisar till en versionsmärkt Python-fil. |
@@ -417,6 +419,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_versions_both_index_and_service_worker` | Samma byggversion används i startsidan och service workern. |
 | `test_prunes_production_unneeded_debug_artifacts` | Källkartor, symbolfiler och oanvänd diagnostik tas bort från produktionsbygget. |
 | `test_bridges_worker_startup_marks_to_main_page` | Deployskriptet installerar bryggan för Pythonworkerns mätpunkter. |
+| `test_keeps_family_responses_out_of_flet_event_channel` | Deployskriptet installerar ett avgränsat skydd mot att familjesvar låser Flets klickhändelser. |
 | `test_checks_deploy_repository_status` | Deployskriptet kontrollerar deploy-repots Git-status. |
 | `test_source_repository_has_git_metadata` | Källkodsrepot är ett eget Git-repo. |
 | `test_deploy_repository_has_git_metadata` | Deploy-repot är ett eget Git-repo. |

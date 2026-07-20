@@ -44,6 +44,10 @@ class FamilyBridgeTemplateTests(unittest.TestCase):
         self.assertIn('event.data?.type === \\"gumli-family-request\\"', self.deploy)
         self.assertIn("window.gumliFamilyBridge?.forward", self.deploy)
 
+    def test_deploy_isolates_family_responses_from_flet_messages(self):
+        self.assertIn("add_python_worker_family_response_guard", self.deploy)
+        self.assertIn('event.data?.type === \"gumli-family-response\"', self.deploy)
+
 
 if __name__ == "__main__":
     unittest.main()
