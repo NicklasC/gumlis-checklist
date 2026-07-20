@@ -30,6 +30,9 @@ data/
 !package.json
 !manifest.json
 !*lock.json
+!appsscript.json
+.env
+*.local.json
 
 # Temporary scratch and development/test logs
 scratch/

@@ -6,6 +6,9 @@ from src.core.theme import (
 )
 from src.views.checklist_view import ChecklistView
 
+
+FAMILY_MODE = "Familj"
+
 def _get_swedish_date() -> str:
     now = datetime.now()
     months = {
@@ -25,17 +28,25 @@ class SegmentedToggle(ft.Container):
         self.active_mode = active_mode # "Att göra" (Privat) or "Jobb"
         
         self.todo_btn = ft.Container(
-            content=ft.Text("Privat", size=12, weight=ft.FontWeight.W_600, color=TEXT_PRIMARY),
+            content=ft.Text("Privat", size=11, weight=ft.FontWeight.W_600, color=TEXT_PRIMARY),
             alignment=ft.Alignment(0, 0),
-            padding=ft.Padding(left=14, top=6, right=14, bottom=6),
+            padding=ft.Padding(left=8, top=6, right=8, bottom=6),
             border_radius=8,
             animate=ft.Animation(200, ft.AnimationCurve.EASE_OUT)
         )
         
         self.work_btn = ft.Container(
-            content=ft.Text("Jobb", size=12, weight=ft.FontWeight.W_600, color=TEXT_MUTED),
+            content=ft.Text("Jobb", size=11, weight=ft.FontWeight.W_600, color=TEXT_MUTED),
             alignment=ft.Alignment(0, 0),
-            padding=ft.Padding(left=14, top=6, right=14, bottom=6),
+            padding=ft.Padding(left=8, top=6, right=8, bottom=6),
+            border_radius=8,
+            animate=ft.Animation(200, ft.AnimationCurve.EASE_OUT)
+        )
+
+        self.family_btn = ft.Container(
+            content=ft.Text("Familj", size=11, weight=ft.FontWeight.W_600, color=TEXT_MUTED),
+            alignment=ft.Alignment(0, 0),
+            padding=ft.Padding(left=8, top=6, right=8, bottom=6),
             border_radius=8,
             animate=ft.Animation(200, ft.AnimationCurve.EASE_OUT)
         )
@@ -51,12 +62,19 @@ class SegmentedToggle(ft.Container):
             on_tap=lambda e: self._toggle_mode("Jobb"),
             mouse_cursor=ft.MouseCursor.CLICK
         )
+
+        self.family_gesture = ft.GestureDetector(
+            content=self.family_btn,
+            on_tap=lambda e: self._toggle_mode(FAMILY_MODE),
+            mouse_cursor=ft.MouseCursor.CLICK
+        )
         
         super().__init__(
             content=ft.Row(
                 controls=[
                     self.todo_gesture,
-                    self.work_gesture
+                    self.work_gesture,
+                    self.family_gesture
                 ],
                 spacing=2,
                 tight=True
@@ -78,27 +96,35 @@ class SegmentedToggle(ft.Container):
             self.on_change(mode)
             
     def _update_ui(self):
+        self.todo_btn.bgcolor = None
+        self.todo_btn.content.color = TEXT_MUTED
+        self.work_btn.bgcolor = None
+        self.work_btn.content.color = TEXT_MUTED
+        self.family_btn.bgcolor = None
+        self.family_btn.content.color = TEXT_MUTED
+
         if self.active_mode == "Att göra":
             self.todo_btn.bgcolor = ft.Colors.with_opacity(0.15, EMERALD_GREEN)
             self.todo_btn.content.color = MINT_GREEN
-            self.work_btn.bgcolor = None
-            self.work_btn.content.color = TEXT_MUTED
-        else:
-            self.todo_btn.bgcolor = None
-            self.todo_btn.content.color = TEXT_MUTED
+        elif self.active_mode == "Jobb":
             self.work_btn.bgcolor = ft.Colors.with_opacity(0.15, "#8B5CF6") # Soft Indigo/Purple
             self.work_btn.content.color = "#A78BFA" # Mint pastel purple
+        else:
+            self.family_btn.bgcolor = ft.Colors.with_opacity(0.15, "#0EA5E9")
+            self.family_btn.content.color = "#7DD3FC"
         
         # Safe trigger if page is loaded
         try:
             self.todo_btn.update()
             self.work_btn.update()
+            self.family_btn.update()
         except Exception:
             pass
 
 class MainView(ft.Container):
-    def __init__(self, repo, *args, **kwargs):
+    def __init__(self, repo, family_repository_factory=None, *args, **kwargs):
         self.repo = repo
+        self.family_repository_factory = family_repository_factory
         self.current_mode = "Att göra" # Global mode state: "Att göra" (Privat) or "Jobb"
         
         # Only the initial checklist is built during startup. Secondary views
@@ -107,6 +133,7 @@ class MainView(ft.Container):
         self.view_templates = None
         self.view_history = None
         self.view_later = None
+        self.view_family = None
         
         # Container to hold the active view
         self.content_area = ft.Container(
@@ -199,11 +226,23 @@ class MainView(ft.Container):
     def _handle_mode_change(self, mode):
         """Switches global mode and triggers active view updates."""
         self.current_mode = mode
+        if mode == FAMILY_MODE:
+            view = self._ensure_family_view()
+            self.content_area.content = view
+            self.content_area.update()
+            view.activate()
+            return
         self._refresh_active_view()
 
     def _handle_nav_change(self, e):
         """Switches screens and reloads their respective data for reactive UI synchronization."""
         idx = int(e.data)
+        if self.current_mode == FAMILY_MODE:
+            view = self._ensure_family_view()
+            self.content_area.content = view
+            self.content_area.update()
+            view.activate()
+            return
         view = self._ensure_view(idx)
         self._reload_view(idx, view)
         self.content_area.content = view
@@ -241,6 +280,19 @@ class MainView(ft.Container):
                 )
             return self.view_later
         raise ValueError(f"Unknown navigation destination: {idx}")
+
+    def _ensure_family_view(self):
+        if self.view_family is None:
+            from src.repositories.family_repository import FamilyRepository
+            from src.views.family_connection_view import FamilyConnectionView
+
+            repository = (
+                self.family_repository_factory()
+                if self.family_repository_factory is not None
+                else FamilyRepository.web_default()
+            )
+            self.view_family = FamilyConnectionView(repository)
+        return self.view_family
 
     @staticmethod
     def _reload_view(idx, view):

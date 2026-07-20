@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <base target="_top">
+    <meta charset="utf-8">
+    <title>Gumli Familj API</title>
+  </head>
+  <body>
+    <script>
+      const allowedOrigins = new Set(<?!= allowedOriginsJson ?>);
+
+      window.addEventListener('message', event => {
+        if (!allowedOrigins.has(event.origin)) return;
+        const message = event.data;
+        if (!message || message.type !== 'gumli-family-request' || !message.requestId) return;
+
+        const reply = response => {
+          event.source?.postMessage({
+            type: 'gumli-family-response',
+            requestId: message.requestId,
+            response,
+          }, event.origin);
+        };
+
+        google.script.run
+          .withSuccessHandler(reply)
+          .withFailureHandler(() => reply({ ok: false, error: 'SERVER_ERROR' }))
+          .handleRequest(message.payload || {});
+      });
+
+      // Apps Script wraps this HTML in its own sandbox iframe. `top` reaches
+      // Gumli, which then remembers this exact inner window and origin.
+      window.top.postMessage({ type: 'gumli-family-ready' }, '*');
+    </script>
+  </body>
+</html>

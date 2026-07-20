@@ -50,6 +50,117 @@
   </script>
 
   <script>
+    // Created only after the user opens Familj and makes a request. Normal
+    // Privat/Jobb startup therefore performs no family network traffic.
+    (() => {
+      const apiUrl = 'https://script.google.com/macros/s/AKfycbz0axuelvLf_V7gvxa5C_2QBFj6Jyhaq6QBaTPEd856aMrjhOCNJBMiFc_vqbdSEcl8YA/exec';
+      let frame = null;
+      let bridgeWindow = null;
+      let bridgeOrigin = null;
+      let readyPromise = null;
+      let resolveReady = null;
+      const pending = new Map();
+      const debug = {
+        frameCreated: false,
+        frameLoaded: false,
+        ready: false,
+        lastError: null,
+        lastResponse: null
+      };
+      window.gumliFamilyDebug = debug;
+      const publishDebug = () => {
+        document.documentElement.dataset.gumliFamilyDebug = JSON.stringify(debug);
+      };
+      publishDebug();
+
+      const ensureFrame = () => {
+        if (readyPromise) return readyPromise;
+        readyPromise = new Promise((resolve) => { resolveReady = resolve; });
+        frame = document.createElement('iframe');
+        frame.src = apiUrl;
+        frame.title = 'Gumli Familj API';
+        frame.hidden = true;
+        frame.setAttribute('aria-hidden', 'true');
+        frame.addEventListener('load', () => {
+          debug.frameLoaded = true;
+          publishDebug();
+        });
+        document.body.appendChild(frame);
+        debug.frameCreated = true;
+        publishDebug();
+        return readyPromise;
+      };
+
+      window.addEventListener('message', (event) => {
+        const message = event.data;
+        if (message?.type === 'gumli-family-ready') {
+          const trustedGoogleOrigin =
+            event.origin === 'https://script.google.com' ||
+            event.origin.endsWith('.googleusercontent.com');
+          if (!frame || bridgeWindow || !trustedGoogleOrigin) return;
+          bridgeWindow = event.source;
+          bridgeOrigin = event.origin;
+          debug.ready = true;
+          publishDebug();
+          resolveReady?.();
+          resolveReady = null;
+          return;
+        }
+        if (
+          message?.type !== 'gumli-family-response' ||
+          event.source !== bridgeWindow ||
+          event.origin !== bridgeOrigin
+        ) return;
+        debug.lastResponse = {
+          ok: Boolean(message.response?.ok),
+          error: message.response?.error || null,
+          member: message.response?.member || null
+        };
+        publishDebug();
+        const request = pending.get(message.requestId);
+        if (!request) return;
+        pending.delete(message.requestId);
+        clearTimeout(request.timeout);
+        request.worker.postMessage(message);
+      });
+
+      window.gumliFamilyBridge = {
+        async forward(message, worker) {
+          const timeout = setTimeout(() => {
+            pending.delete(message.requestId);
+            debug.lastError = 'TIMEOUT';
+            publishDebug();
+            worker.postMessage({
+              type: 'gumli-family-response',
+              requestId: message.requestId,
+              response: { ok: false, error: 'TIMEOUT' }
+            });
+          }, 10000);
+          pending.set(message.requestId, { worker, timeout });
+          try {
+            await ensureFrame();
+            bridgeWindow.postMessage({
+              type: 'gumli-family-request',
+              requestId: message.requestId,
+              payload: message.payload
+            }, bridgeOrigin);
+          } catch (_error) {
+            clearTimeout(timeout);
+            pending.delete(message.requestId);
+            debug.lastError = 'BRIDGE_ERROR';
+            publishDebug();
+            worker.postMessage({
+              type: 'gumli-family-response',
+              requestId: message.requestId,
+              response: { ok: false, error: 'BRIDGE_ERROR' }
+            });
+          }
+        }
+      };
+    })();
+  </script>
+
+  <script>
     var flet = {
       pyodide: false,
       multiView: false,

@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock
 
-from src.views.main_view import MainView
+from src.views.main_view import FAMILY_MODE, MainView
 from tests.support.fixtures import PRIVATE, WORK, InMemoryRepository
 
 
@@ -40,6 +40,7 @@ class MainViewTests(unittest.TestCase):
         self.assertIsNone(view.view_templates)
         self.assertIsNone(view.view_history)
         self.assertIsNone(view.view_later)
+        self.assertIsNone(view.view_family)
 
     def test_secondary_view_is_created_on_first_request(self):
         view = self.make_view()
@@ -54,3 +55,32 @@ class MainViewTests(unittest.TestCase):
     def test_unknown_navigation_destination_is_rejected(self):
         with self.assertRaises(ValueError):
             self.make_view()._ensure_view(99)
+
+    def test_family_repository_and_view_are_lazy(self):
+        family_repository = MagicMock()
+        factory = MagicMock(return_value=family_repository)
+        view = MainView(InMemoryRepository(), family_repository_factory=factory)
+        self.assertIsNone(view.view_family)
+        factory.assert_not_called()
+
+        family_view = view._ensure_family_view()
+        factory.assert_called_once_with()
+        self.assertIs(family_view.repository, family_repository)
+
+    def test_family_mode_does_not_reload_private_repository_view(self):
+        family_repository = MagicMock()
+        view = MainView(
+            InMemoryRepository(),
+            family_repository_factory=MagicMock(return_value=family_repository),
+        )
+        view._refresh_active_view = MagicMock()
+        family_view = view._ensure_family_view()
+        family_view.activate = MagicMock()
+        view.content_area.update = MagicMock()
+
+        view._handle_mode_change(FAMILY_MODE)
+
+        self.assertEqual(view.current_mode, FAMILY_MODE)
+        self.assertIs(view.content_area.content, family_view)
+        view._refresh_active_view.assert_not_called()
+        family_view.activate.assert_called_once_with()

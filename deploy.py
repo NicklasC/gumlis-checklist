@@ -23,7 +23,7 @@ def prune_debug_artifacts(deploy_dir):
 
 
 def add_python_startup_bridge(python_js_path):
-    """Forward Python worker timing marks to the main page diagnostics object."""
+    """Forward Gumli-specific worker messages without disturbing Flet traffic."""
     with open(python_js_path, "r", encoding="utf-8") as python_file:
         source = python_file.read()
 
@@ -32,6 +32,10 @@ def add_python_startup_bridge(python_js_path):
         marker
         + "        if (typeof event.data === \"string\" && event.data.startsWith(\"__gumli_startup__:\")) {\n"
         + "            window.gumliStartup?.mark(event.data.substring(\"__gumli_startup__:\".length));\n"
+        + "            return;\n"
+        + "        }\n"
+        + "        if (event.data?.type === \"gumli-family-request\") {\n"
+        + "            window.gumliFamilyBridge?.forward(event.data, app.worker);\n"
         + "            return;\n"
         + "        }\n"
     )

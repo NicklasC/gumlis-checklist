@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock
 
-from src.views.main_view import SegmentedToggle
+from src.views.main_view import FAMILY_MODE, SegmentedToggle
 from tests.support.fixtures import PRIVATE, WORK
 
 
@@ -35,3 +35,11 @@ class SegmentedToggleTests(unittest.TestCase):
     def test_private_mode_highlights_private_button(self):
         toggle = SegmentedToggle(MagicMock(), active_mode=PRIVATE)
         self.assertIsNotNone(toggle.todo_btn.bgcolor)
+
+    def test_switches_to_family(self):
+        callback = MagicMock()
+        toggle = SegmentedToggle(callback)
+        toggle._toggle_mode(FAMILY_MODE)
+        self.assertEqual(toggle.active_mode, FAMILY_MODE)
+        self.assertIsNotNone(toggle.family_btn.bgcolor)
+        callback.assert_called_once_with(FAMILY_MODE)

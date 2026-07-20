@@ -14,11 +14,11 @@ Målet med dokumentet är att en människa snabbt och enkelt ska få en övergri
 
 | Område | Antal | Innehåll |
 |---|---:|---|
-| Enhetstester | 62 | Datamodeller, lagring, migrering och historikregler |
-| Komponenttester | 86 | Vyernas och komponenternas logik utan webbläsare |
-| PWA- och distributionstester | 62 | Manifest, byggfiler, sidmallar och de två repona |
+| Enhetstester | 67 | Datamodeller, lagring, migrering, historikregler och familjeanslutning |
+| Komponenttester | 93 | Vyernas och komponenternas logik utan webbläsare |
+| PWA- och distributionstester | 79 | Manifest, Apps Script-API, familjebrygga, byggfiler, sidmallar och de två repona |
 | GUI/E2E-tester | 70 | Verkliga användarflöden i Chromium |
-| **Totalt** | **280** | |
+| **Totalt** | **309** | |
 
 GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den byggda appen och deploy-repot finns lokalt; annars markeras de som överhoppade.
 
@@ -94,6 +94,16 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_updates_favorite_group_without_duplicate` | En favoritgrupp uppdateras utan att dupliceras. |
 | `test_deleted_required_favorite_group_is_restored` | En obligatorisk favoritgrupp återskapas om den raderas. |
 
+### Familjens enhetsanslutning — `tests/unit/test_family_repository.py`
+
+| Testfall | Vad testet kontrollerar |
+|---|---|
+| `test_connect_verifies_and_persists_server_derived_member` | En ny enhetsnyckel sparas först efter att servern har godkänt den och returnerat rätt medlem. |
+| `test_wrong_key_is_not_persisted` | En felaktig enhetsnyckel nekas och sparas aldrig på enheten. |
+| `test_resume_reuses_persisted_connection` | En tidigare godkänd anslutning verifieras på nytt och återanvänds vid nästa öppning. |
+| `test_invalid_local_state_does_not_make_network_request` | Trasig lokal anslutningsdata ignoreras utan att något familjeanrop görs. |
+| `test_disconnect_removes_persisted_connection` | Koppla från tar bort den separat sparade familjeanslutningen. |
+
 ### Filbaserad lagring — `tests/unit/test_repository_crud.py`
 
 | Testfall | Vad testet kontrollerar |
@@ -132,6 +142,8 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_secondary_view_is_created_on_first_request` | En sekundär vy skapas först när användaren öppnar den. |
 | `test_lazily_created_view_is_reused` | En lazy-loadad vy återanvänds i stället för att byggas om. |
 | `test_unknown_navigation_destination_is_rejected` | Ett okänt navigationsmål avvisas tydligt. |
+| `test_family_repository_and_view_are_lazy` | Familjens nätverkslager och vy skapas först när användaren väljer Familj. |
+| `test_family_mode_does_not_reload_private_repository_view` | Ett byte till Familj startar inte om Privat/Jobb-lagringen. |
 
 ### Tidigt appskal — `tests/components/test_startup_view.py`
 
@@ -152,6 +164,16 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_selecting_active_mode_does_not_call_callback` | Ett klick på redan aktivt läge orsakar ingen onödig uppdatering. |
 | `test_work_mode_highlights_work_button` | Jobbknappen markeras när Jobb är aktivt. |
 | `test_private_mode_highlights_private_button` | Privatknappen markeras när Privat är aktivt. |
+| `test_switches_to_family` | Lägesväljaren kan byta till Familj och markerar rätt knapp. |
+
+### Familjens anslutningsvy — `tests/components/test_family_connection_view.py`
+
+| Testfall | Vad testet kontrollerar |
+|---|---|
+| `test_successful_connection_shows_server_member` | En godkänd nyckel visar den medlem som servern har identifierat. |
+| `test_wrong_key_shows_clear_error` | En felaktig nyckel ger ett tydligt svenskt felmeddelande. |
+| `test_resume_shows_persisted_member` | En sparad anslutning återställs automatiskt när Familj öppnas igen. |
+| `test_disconnect_returns_to_connection_form` | Koppla från återgår till formuläret för enhetsnyckel. |
 
 ### Snabbinmatning — `tests/components/test_quick_add.py`
 
@@ -292,6 +314,33 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_static_resources_use_cache_first` | Versionsbundna resurser hämtas från cache före nätverket. |
 | `test_only_trusted_runtime_cdns_are_cacheable` | Bara Flets uttryckligt betrodda runtimevärdar får cachas över domängränsen. |
 | `test_only_caches_successful_responses` | Felaktiga nätverkssvar sparas inte i cachen. |
+
+### Familjens Apps Script-API — `tests/pwa/test_family_apps_script.py`
+
+| Testfall | Vad testet kontrollerar |
+|---|---|
+| `test_contains_no_spreadsheet_url_or_local_secret_file` | Den versionshanterade API-koden innehåller ingen direkt arklänk, privat Google-nyckel eller lokal hemlighetsfil. |
+| `test_reads_configuration_from_script_properties` | Ark-ID, servicekonto och hashade enhetsnycklar hämtas från privata Script Properties. |
+| `test_service_account_private_key_stays_server_side` | Servicekontots privata nyckel används bara på serversidan och förekommer aldrig i iframe-klienten. |
+| `test_member_identity_comes_from_device_token` | Servern härleder medlemmen från enhetsnyckeln och accepterar inte ett självrapporterat namn från klienten. |
+| `test_rejects_wrong_key_before_action_dispatch` | Fel enhetsnyckel nekas innan någon API-åtgärd körs. |
+| `test_supports_ping_read_and_idempotent_write_probe` | Spiken har ping, läsning och dubblettskyddad provskrivning. |
+| `test_serializes_probe_writes_with_script_lock` | Samtidiga provskrivningar skyddas med Apps Script-låsning. |
+| `test_probe_sheet_is_separate_from_family_tasks` | Provdata skrivs till ett avskilt tekniskt blad. |
+| `test_direct_post_returns_json_without_putting_key_in_url` | Direkt POST ger JSON och lägger aldrig enhetsnyckeln i URL:en. |
+| `test_bridge_restricts_parent_origin_and_targets_reply_origin` | Reservbryggan accepterar bara tillåtna ursprung och svarar endast till anroparen. |
+| `test_manifest_runs_as_owner_and_allows_anonymous_web_app_calls` | Webbappen körs som Nicklas men har bara behörighet att göra externa HTTPS-anrop; den får ingen åtkomst till Nicklas Google-kalkylark. |
+
+### PWA-brygga för Familj — `tests/pwa/test_family_bridge.py`
+
+| Testfall | Vad testet kontrollerar |
+|---|---|
+| `test_family_iframe_is_created_lazily` | Apps Script-ramen skapas först när Familj faktiskt gör ett anrop. |
+| `test_bridge_has_ten_second_timeout` | Ett familjeanrop avslutas med ett kontrollerat timeoutfel efter tio sekunder. |
+| `test_bridge_validates_iframe_source_and_response_origin` | PWA:n accepterar bara svar från den inramade, betrodda Google-sidan. |
+| `test_device_token_is_not_part_of_api_url` | Enhetsnyckeln förekommer inte i Apps Script-adressen. |
+| `test_diagnostics_never_store_request_payload_or_token` | Den säkra webbläsardiagnostiken lagrar varken anropsinnehåll eller enhetsnyckel. |
+| `test_deploy_forwards_only_family_worker_messages` | Den byggda Pythonvärden vidarebefordrar endast uttryckliga familjemeddelanden till bryggan. |
 
 ### Färdigbyggd PWA — `tests/pwa/test_build_output.py`
 

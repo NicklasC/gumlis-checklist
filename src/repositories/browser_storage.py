@@ -58,6 +58,37 @@ def _install_bridge():
             },
             putSoon(value) {
               this.put(value).catch((error) => console.error('[GUMLI STORAGE] Direct write failed', error));
+            },
+            async getFamilyConnection() {
+              const db = await open();
+              return new Promise((resolve, reject) => {
+                const transaction = db.transaction(STORE_NAME, 'readonly');
+                const request = transaction.objectStore(STORE_NAME).get('family-connection-v1');
+                request.onsuccess = () => resolve(request.result ?? null);
+                request.onerror = () => reject(request.error);
+                transaction.oncomplete = () => db.close();
+                transaction.onerror = () => reject(transaction.error);
+              });
+            },
+            async putFamilyConnection(value) {
+              const db = await open();
+              return new Promise((resolve, reject) => {
+                const transaction = db.transaction(STORE_NAME, 'readwrite');
+                transaction.objectStore(STORE_NAME).put(value, 'family-connection-v1');
+                transaction.oncomplete = () => { db.close(); resolve(true); };
+                transaction.onerror = () => { db.close(); reject(transaction.error); };
+                transaction.onabort = () => { db.close(); reject(transaction.error); };
+              });
+            },
+            async deleteFamilyConnection() {
+              const db = await open();
+              return new Promise((resolve, reject) => {
+                const transaction = db.transaction(STORE_NAME, 'readwrite');
+                transaction.objectStore(STORE_NAME).delete('family-connection-v1');
+                transaction.oncomplete = () => { db.close(); resolve(true); };
+                transaction.onerror = () => { db.close(); reject(transaction.error); };
+                transaction.onabort = () => { db.close(); reject(transaction.error); };
+              });
             }
           };
         })();
@@ -122,6 +153,25 @@ def write_cached(content: str) -> bool:
         return False
     _bridge.putSoon(content)
     return True
+
+
+async def read_family_connection() -> Optional[str]:
+    if _bridge is None:
+        return None
+    value = await _bridge.getFamilyConnection()
+    return None if value is None else str(value)
+
+
+async def write_family_connection(content: str) -> None:
+    if _bridge is None:
+        raise RuntimeError("Webbläsarlagringen är inte redo")
+    await _bridge.putFamilyConnection(content)
+
+
+async def delete_family_connection() -> None:
+    if _bridge is None:
+        return
+    await _bridge.deleteFamilyConnection()
 
 
 def reset_storage_state():
