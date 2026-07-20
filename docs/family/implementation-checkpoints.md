@@ -29,7 +29,7 @@ Cache, synkstatus, Mina/Alla-filter, kompakt mobilrad och deadlineindikering.
 - [x] Alla/Mina-filter med räknare.
 - [x] Kompakt rad med ansvarig, deadline och röd förseningsindikering.
 - [x] Sortering enligt deadline- och skapandetidsreglerna.
-- [x] 89 enhets- och 104 komponenttester samt GUI-regression godkända lokalt.
+- [x] 90 enhets- och 108 komponenttester samt GUI-regression godkända lokalt.
 
 Kontrollpunkt 3 kan slutgodkännas när 3A och 3B har verifierats tillsammans
 med cache/offline-felstater.
