@@ -81,6 +81,31 @@ class FamilyTask(BaseModel):
         return self
 
 
+class FamilyTaskDraft(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str
+    assignee: str = "Alla"
+    deadline: Optional[date] = None
+
+    @field_validator("title")
+    @classmethod
+    def _required_title(cls, value: str) -> str:
+        normalized = str(value or "").strip()
+        if not normalized:
+            raise ValueError("Uppgiften får inte vara tom")
+        if len(normalized) > 200:
+            raise ValueError("Uppgiften är för lång")
+        return normalized
+
+    @field_validator("assignee")
+    @classmethod
+    def _valid_assignee(cls, value: str) -> str:
+        if value not in FAMILY_ASSIGNEES:
+            raise ValueError("Okänd ansvarig")
+        return value
+
+
 class FamilyMember(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

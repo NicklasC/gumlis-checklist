@@ -1,8 +1,31 @@
 import json
 import unittest
+from datetime import date
 from unittest.mock import AsyncMock
 
-from src.repositories.family_repository import FamilyRepository
+from src.models.family import FamilyTask, FamilyTaskDraft
+from src.repositories.family_repository import FamilyRepository, FamilyVersionConflict
+
+
+def mutation_task(**overrides):
+    value = {
+        "id": "family-1",
+        "title": "Töm soporna",
+        "status": "Aktuell",
+        "assignee": "Alla",
+        "assigned_by": "Nicklas",
+        "assigned_at": "2026-07-20T18:00:00+02:00",
+        "created_by": "Nicklas",
+        "created_at": "2026-07-20T18:00:00+02:00",
+        "deadline": None,
+        "updated_by": "Nicklas",
+        "updated_at": "2026-07-20T18:00:00+02:00",
+        "completed_by": None,
+        "completed_at": None,
+        "version": 1,
+    }
+    value.update(overrides)
+    return value
 
 
 class FakeConnectionStorage:
@@ -177,6 +200,36 @@ class FamilyRepositoryTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNone(await repo.cached_bootstrap())
 
+    async def test_cached_bootstrap_restores_valid_cache_without_network(self):
+        storage = FakeConnectionStorage()
+        cached = json.dumps(
+            {
+                "tasks": [],
+                "members": [],
+                "favorites": [],
+                "invalid_rows": [],
+                "server_time": "2026-07-20T12:00:00+00:00",
+            }
+        )
+
+        async def load_cache():
+            return cached
+
+        transport = AsyncMock()
+        repo = FamilyRepository(
+            transport,
+            storage.load,
+            storage.save,
+            storage.delete,
+            load_bootstrap_cache=load_cache,
+        )
+
+        restored = await repo.cached_bootstrap()
+
+        self.assertIsNotNone(restored)
+        self.assertEqual(restored.tasks, [])
+        transport.assert_not_awaited()
+
     async def test_bootstrap_requires_connected_device(self):
         repo, _, requests = self.make_repository({"ok": True})
         with self.assertRaises(PermissionError):
@@ -208,6 +261,77 @@ class FamilyRepositoryTests(unittest.IsolatedAsyncioTestCase):
                 {"action": "listHistory", "deviceToken": token},
             ],
         )
+
+    async def test_create_task_sends_stable_id_without_member_identity(self):
+        token = "n" * 48
+        stored = json.dumps({"deviceToken": token, "member": "Nicklas"})
+        repo, _, requests = self.make_repository(
+            {"ok": True, "data": {"task": mutation_task()}},
+            stored,
+        )
+
+        created = await repo.create_task(
+            FamilyTaskDraft(title="Töm soporna", assignee="Ida", deadline=date(2026, 7, 28)),
+            task_id="family-1",
+        )
+
+        self.assertEqual(created.id, "family-1")
+        self.assertEqual(
+            requests,
+            [
+                {
+                    "action": "createTask",
+                    "deviceToken": token,
+                    "task": {
+                        "id": "family-1",
+                        "title": "Töm soporna",
+                        "assignee": "Ida",
+                        "deadline": "2026-07-28",
+                    },
+                }
+            ],
+        )
+        self.assertNotIn("member", requests[0])
+
+    async def test_update_task_sends_expected_version(self):
+        token = "n" * 48
+        stored = json.dumps({"deviceToken": token, "member": "Nicklas"})
+        response_task = mutation_task(title="Gå med soporna", assignee="Thor", version=2)
+        repo, _, requests = self.make_repository(
+            {"ok": True, "data": {"task": response_task}},
+            stored,
+        )
+
+        updated = await repo.update_task(
+            FamilyTask.model_validate(mutation_task()),
+            FamilyTaskDraft(title="Gå med soporna", assignee="Thor"),
+        )
+
+        self.assertEqual(updated.version, 2)
+        self.assertEqual(requests[0]["task"]["version"], 1)
+        self.assertNotIn("member", requests[0])
+
+    async def test_update_task_exposes_latest_row_on_version_conflict(self):
+        token = "n" * 48
+        stored = json.dumps({"deviceToken": token, "member": "Nicklas"})
+        latest = mutation_task(title="Redan ändrad", updated_by="Ida", version=2)
+        repo, _, _ = self.make_repository(
+            {
+                "ok": False,
+                "error": "VERSION_CONFLICT",
+                "data": {"latestTask": latest},
+            },
+            stored,
+        )
+
+        with self.assertRaises(FamilyVersionConflict) as caught:
+            await repo.update_task(
+                FamilyTask.model_validate(mutation_task()),
+                FamilyTaskDraft(title="Min ändring"),
+            )
+
+        self.assertEqual(caught.exception.latest_task.title, "Redan ändrad")
+        self.assertEqual(caught.exception.latest_task.updated_by, "Ida")
 
     async def test_disconnect_removes_persisted_connection(self):
         repo, storage, _ = self.make_repository({"ok": True, "member": "Thor"}, "saved")

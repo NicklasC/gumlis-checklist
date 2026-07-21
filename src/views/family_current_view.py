@@ -13,7 +13,9 @@ from src.core.theme import (
     border_all,
     glass_card_style,
 )
-from src.models.family import FamilyBootstrap, FamilyTask
+from src.models.family import FamilyBootstrap, FamilyTask, FamilyTaskDraft
+from src.repositories.family_repository import FamilyVersionConflict
+from src.views.family_task_editor import FamilyTaskEditor
 
 
 OVERDUE_COLOR = "#F87171"
@@ -45,10 +47,17 @@ def family_deadline_text(task: FamilyTask, today: date | None = None) -> tuple[s
     return f"Deadline {task.deadline.day}/{task.deadline.month}", False
 
 
-class FamilyTaskRow(ft.Container):
-    """Compact, read-only task row for the first family list checkpoint."""
+class FamilyTaskRow(ft.Semantics):
+    """Compact family task row with an optional edit/details action."""
 
-    def __init__(self, task: FamilyTask, today: date | None = None, *args, **kwargs):
+    def __init__(
+        self,
+        task: FamilyTask,
+        today: date | None = None,
+        on_open=None,
+        *args,
+        **kwargs,
+    ):
         self.task = task
         deadline, overdue = family_deadline_text(task, today=today)
         self.title_text = ft.Text(
@@ -72,11 +81,18 @@ class FamilyTaskRow(ft.Container):
             visible=bool(deadline),
         )
         metadata = [self.assignee_text]
+        self.assigned_by_text = ft.Text(
+            f"Tilldelad av {task.assigned_by}",
+            size=11,
+            color=TEXT_MUTED,
+            visible=task.assigned_by != task.created_by,
+        )
+        if self.assigned_by_text.visible:
+            metadata.append(self.assigned_by_text)
         if deadline:
             metadata.append(self.deadline_text)
         row_style = glass_card_style(padding=8, border_radius=10, border_color="#1C3328")
-        super().__init__(
-            *args,
+        visual_row = ft.Container(
             content=ft.Row(
                 controls=[
                     ft.Container(
@@ -97,7 +113,19 @@ class FamilyTaskRow(ft.Container):
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
             ),
             **row_style,
+            on_click=(lambda _event: on_open(task)) if on_open else None,
             **kwargs,
+        )
+        semantic_value = f"Ansvarig: {task.assignee}"
+        if deadline:
+            semantic_value += f". {deadline}"
+        super().__init__(
+            *args,
+            content=visual_row,
+            label=f"Redigera {task.title}" if on_open else task.title,
+            value=semantic_value,
+            button=True if on_open else None,
+            exclude_semantics=True,
         )
 
 
@@ -121,6 +149,20 @@ class FamilyCurrentView(ft.Container):
         )
         self.filter_row = ft.Row(spacing=6, tight=True)
         self.list_container = ft.Column(scroll=ft.ScrollMode.AUTO, spacing=6, expand=True)
+        self._create_icon_button = ft.IconButton(
+            icon=ft.Icons.ADD_ROUNDED,
+            tooltip="Ny familjeuppgift",
+            icon_color=MINT_GREEN,
+            disabled=True,
+            on_click=self._open_create,
+        )
+        self.create_button = ft.Semantics(
+            label="Ny familjeuppgift",
+            button=True,
+            exclude_semantics=True,
+            content=self._create_icon_button,
+        )
+        self.editor = FamilyTaskEditor(self._save_editor)
         self._rebuild_filter_buttons()
 
         super().__init__(
@@ -130,7 +172,7 @@ class FamilyCurrentView(ft.Container):
                     ft.Row(
                         controls=[
                             ft.Column(controls=[self.header_text, self.member_text], spacing=1, tight=True),
-                            self.status_text,
+                            ft.Row(controls=[self.status_text, self.create_button], spacing=4, tight=True),
                         ],
                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     ),
@@ -174,6 +216,7 @@ class FamilyCurrentView(ft.Container):
 
     def _set_bootstrap(self, bootstrap: FamilyBootstrap):
         self.bootstrap = bootstrap
+        self._create_icon_button.disabled = False
         self._rebuild_filter_buttons()
         self._render_tasks()
 
@@ -224,7 +267,62 @@ class FamilyCurrentView(ft.Container):
                 empty_text = "Du har inga tilldelade familjeuppgifter"
             self.list_container.controls = [ft.Text(empty_text, color=TEXT_MUTED, size=13)]
         else:
-            self.list_container.controls = [FamilyTaskRow(task) for task in tasks]
+            self.list_container.controls = [
+                FamilyTaskRow(task, on_open=self._open_edit) for task in tasks
+            ]
+
+    def _open_create(self, _event=None):
+        self.editor.prepare()
+        self._show_editor()
+
+    def _open_edit(self, task: FamilyTask):
+        self.editor.prepare(task)
+        self._show_editor()
+
+    def _show_editor(self):
+        try:
+            if self.page is not None:
+                self.page.show_dialog(self.editor)
+        except (AttributeError, RuntimeError):
+            pass
+
+    async def _save_editor(
+        self,
+        task: FamilyTask | None,
+        draft: FamilyTaskDraft,
+        editor: FamilyTaskEditor,
+    ):
+        try:
+            saved = (
+                await self.repository.update_task(task, draft)
+                if task is not None
+                else await self.repository.create_task(
+                    draft,
+                    task_id=editor.pending_create_id,
+                )
+            )
+            self._upsert_task(saved)
+            await self.repository.cache_bootstrap(self.bootstrap)
+            editor.close()
+            self._set_status(
+                "Ändringar sparade" if task is not None else "Uppgiften skapad",
+                MINT_GREEN,
+            )
+        except FamilyVersionConflict as conflict:
+            self._upsert_task(conflict.latest_task)
+            editor.load_conflict(conflict.latest_task)
+        except (ValueError, PermissionError, LookupError, TimeoutError) as error:
+            editor.set_error(str(error))
+        except Exception:
+            editor.set_error("Kunde inte spara uppgiften. Försök igen.")
+
+    def _upsert_task(self, task: FamilyTask):
+        if self.bootstrap is None:
+            return
+        tasks = [existing for existing in self.bootstrap.tasks if existing.id != task.id]
+        if task.status.value == "Aktuell":
+            tasks.append(task)
+        self._set_bootstrap(self.bootstrap.model_copy(update={"tasks": tasks}))
 
     def _set_status(self, value: str, color: str):
         self.status_text.value = value

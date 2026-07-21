@@ -3,11 +3,19 @@
 from __future__ import annotations
 
 import json
+import uuid
 from typing import Awaitable, Callable, Optional
 
 from pydantic import ValidationError
 
-from src.models.family import FAMILY_MEMBERS, FamilyBootstrap, FamilyConnection, FamilyTaskPage
+from src.models.family import (
+    FAMILY_MEMBERS,
+    FamilyBootstrap,
+    FamilyConnection,
+    FamilyTask,
+    FamilyTaskDraft,
+    FamilyTaskPage,
+)
 
 
 Transport = Callable[[dict], Awaitable[dict]]
@@ -16,6 +24,12 @@ SaveConnection = Callable[[str], Awaitable[None]]
 DeleteConnection = Callable[[], Awaitable[None]]
 LoadBootstrapCache = Callable[[], Awaitable[Optional[str]]]
 SaveBootstrapCache = Callable[[str], Awaitable[None]]
+
+
+class FamilyVersionConflict(RuntimeError):
+    def __init__(self, latest_task: FamilyTask):
+        super().__init__("Uppgiften har ändrats på en annan enhet")
+        self.latest_task = latest_task
 
 
 class FamilyRepository:
@@ -110,6 +124,16 @@ class FamilyRepository:
         """Return the last valid family bootstrap without contacting the server."""
         if self._load_bootstrap_cache is None:
             return None
+        try:
+            raw = await self._load_bootstrap_cache()
+            if not raw:
+                return None
+            return FamilyBootstrap.model_validate(json.loads(raw))
+        except (TypeError, ValueError, json.JSONDecodeError, ValidationError):
+            return None
+
+    async def cache_bootstrap(self, bootstrap: FamilyBootstrap) -> None:
+        await self._save_bootstrap(bootstrap)
 
     async def list_later(self) -> FamilyTaskPage:
         return await self._list_task_page("listLater")
@@ -117,10 +141,48 @@ class FamilyRepository:
     async def list_history(self) -> FamilyTaskPage:
         return await self._list_task_page("listHistory")
 
+    async def create_task(
+        self,
+        draft: FamilyTaskDraft,
+        task_id: Optional[str] = None,
+    ) -> FamilyTask:
+        connection = await self._require_connection()
+        stable_id = str(task_id or uuid.uuid4()).strip()
+        if not stable_id or len(stable_id) > 128:
+            raise ValueError("Uppgiften har ett ogiltigt ID")
+        response = await self._transport(
+            {
+                "action": "createTask",
+                "deviceToken": connection.device_token,
+                "task": {
+                    "id": stable_id,
+                    "title": draft.title,
+                    "assignee": draft.assignee,
+                    "deadline": draft.deadline.isoformat() if draft.deadline else None,
+                },
+            }
+        )
+        return self._mutation_task(response)
+
+    async def update_task(self, task: FamilyTask, draft: FamilyTaskDraft) -> FamilyTask:
+        connection = await self._require_connection()
+        response = await self._transport(
+            {
+                "action": "updateTask",
+                "deviceToken": connection.device_token,
+                "task": {
+                    "id": task.id,
+                    "version": task.version,
+                    "title": draft.title,
+                    "assignee": draft.assignee,
+                    "deadline": draft.deadline.isoformat() if draft.deadline else None,
+                },
+            }
+        )
+        return self._mutation_task(response)
+
     async def _list_task_page(self, action: str) -> FamilyTaskPage:
-        connection = await self._stored_connection()
-        if connection is None:
-            raise PermissionError("Anslut enheten till Familj först")
+        connection = await self._require_connection()
         response = await self._transport(
             {"action": action, "deviceToken": connection.device_token}
         )
@@ -135,13 +197,29 @@ class FamilyRepository:
             )
         except (AttributeError, TypeError, ValidationError) as error:
             raise ConnectionError("Familjen returnerade ogiltiga data") from error
+
+    async def _require_connection(self) -> FamilyConnection:
+        connection = await self._stored_connection()
+        if connection is None:
+            raise PermissionError("Anslut enheten till Familj först")
+        return connection
+
+    @staticmethod
+    def _mutation_task(response: dict) -> FamilyTask:
+        if isinstance(response, dict) and response.get("error") == "VERSION_CONFLICT":
+            data = response.get("data")
+            latest = data.get("latestTask") if isinstance(data, dict) else None
+            try:
+                raise FamilyVersionConflict(FamilyTask.model_validate(latest))
+            except FamilyVersionConflict:
+                raise
+            except (TypeError, ValidationError) as error:
+                raise ConnectionError("Familjen returnerade en ogiltig konflikt") from error
+        data = FamilyRepository._response_data(response)
         try:
-            raw = await self._load_bootstrap_cache()
-            if not raw:
-                return None
-            return FamilyBootstrap.model_validate(json.loads(raw))
-        except (TypeError, ValueError, json.JSONDecodeError, ValidationError):
-            return None
+            return FamilyTask.model_validate(data.get("task"))
+        except (AttributeError, TypeError, ValidationError) as error:
+            raise ConnectionError("Familjen returnerade en ogiltig uppgift") from error
 
     async def _save_bootstrap(self, bootstrap: FamilyBootstrap) -> None:
         if self._save_bootstrap_cache is None:
@@ -186,6 +264,10 @@ class FamilyRepository:
                 raise PermissionError("Enhetsnyckeln känns inte igen")
             if error == "INVALID_INPUT":
                 raise ValueError("Familjen kunde inte läsa de angivna uppgifterna")
+            if error == "NOT_FOUND":
+                raise LookupError("Uppgiften finns inte längre")
+            if error == "TIMEOUT":
+                raise TimeoutError("Familjen är upptagen – försök igen")
             raise ConnectionError("Familjen kunde inte nås just nu")
         data = response.get("data")
         if data is None:

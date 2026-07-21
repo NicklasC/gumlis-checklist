@@ -17,7 +17,7 @@ anslutning är verifierade och publicerade.
 - Alla API-svar följer ett stabilt svarskuvert.
 - Produktionsbladen, Apps Script version 5 och beständig anslutning som Nicklas är verifierade.
 
-## 3. Aktuell-lista och synkning – Pågår
+## 3. Aktuell-lista och synkning – lokalt godkänd
 
 Cache, synkstatus, Mina/Alla-filter, kompakt mobilrad och deadlineindikering.
 
@@ -29,10 +29,10 @@ Cache, synkstatus, Mina/Alla-filter, kompakt mobilrad och deadlineindikering.
 - [x] Alla/Mina-filter med räknare.
 - [x] Kompakt rad med ansvarig, deadline och röd förseningsindikering.
 - [x] Sortering enligt deadline- och skapandetidsreglerna.
-- [x] 90 enhets- och 108 komponenttester samt GUI-regression godkända lokalt.
+- [x] Giltig cache återställs utan nätverksanrop; trasig cache ignoreras.
+- [x] Enhets-, komponent- och GUI-regression godkända lokalt.
 
-Kontrollpunkt 3 kan slutgodkännas när 3A och 3B har verifierats tillsammans
-med cache/offline-felstater.
+Kontrollpunkt 3 är verifierad lokalt tillsammans med cache- och offline-felstater.
 
 ### 3B. Familjens läs-only-nedernavigation – lokalt godkänd
 
@@ -44,9 +44,19 @@ med cache/offline-felstater.
 
 Skrivoperationer och skapande från Snabblistan hör till kontrollpunkt 4 och 7.
 
-## 4. Skapa och redigera – Väntar
+## 4. Skapa och redigera – lokalt godkänd
 
-Titel, ansvarig, deadline, Tilldelad av, Senast ändrad av och versionskontroll.
+- [x] Uppgift skapas med klientgenererat stabilt ID och serverhärledd medlem.
+- [x] Titel, ansvarig och valfri deadline kan anges och ändras.
+- [x] Alla är standardansvarig.
+- [x] Tilldelad av ändras bara när ansvarig ändras.
+- [x] Skapad av, Tilldelad av och Senast ändrad av visas vid redigering.
+- [x] Skrivningar är låsta, skapande är idempotent och gammal version ger konflikt.
+- [x] Konflikt laddar serverns senaste rad och skriver aldrig över den tyst.
+- [x] Aktuell och Senare uppdateras lokalt efter lyckad skrivning.
+- [x] GUI-test verifierar skapa, deadline, auditinformation och redigering.
+
+Kontrollpunkten är inte publicerad mot produktions-Apps Script eller GitHub Pages än.
 
 ## 5. Senare och statuslivscykel – Väntar
 

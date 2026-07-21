@@ -4,7 +4,9 @@ import flet as ft
 
 from src.core.theme import MINT_GREEN, TEXT_MUTED, TEXT_SECONDARY
 from src.models.family import FamilyTaskPage
+from src.repositories.family_repository import FamilyVersionConflict
 from src.views.family_current_view import FamilyTaskRow
+from src.views.family_task_editor import FamilyTaskEditor
 
 
 class FamilyTaskPageView(ft.Container):
@@ -24,6 +26,7 @@ class FamilyTaskPageView(ft.Container):
         self.member_text = ft.Text(f"Ansluten som {member}", size=11, color=MINT_GREEN)
         self.filter_row = ft.Row(spacing=6, tight=True)
         self.list_container = ft.Column(scroll=ft.ScrollMode.AUTO, spacing=6, expand=True)
+        self.editor = FamilyTaskEditor(self._save_editor) if action == "listLater" else None
         self._rebuild_filter_buttons()
 
         super().__init__(
@@ -118,8 +121,49 @@ class FamilyTaskPageView(ft.Container):
         self.list_container.controls = (
             [ft.Text(self.empty_text, color=TEXT_MUTED, size=13)]
             if not tasks
-            else [FamilyTaskRow(task) for task in tasks]
+            else [
+                FamilyTaskRow(
+                    task,
+                    on_open=self._open_edit if self.action == "listLater" else None,
+                )
+                for task in tasks
+            ]
         )
+
+    def _open_edit(self, task):
+        if self.editor is None:
+            return
+        self.editor.prepare(task)
+        try:
+            if self.page is not None:
+                self.page.show_dialog(self.editor)
+        except (AttributeError, RuntimeError):
+            pass
+
+    async def _save_editor(self, task, draft, editor):
+        try:
+            saved = await self.repository.update_task(task, draft)
+            self._upsert_task(saved)
+            editor.close()
+            self._set_status("Ändringar sparade", MINT_GREEN)
+        except FamilyVersionConflict as conflict:
+            self._upsert_task(conflict.latest_task)
+            editor.load_conflict(conflict.latest_task)
+        except (ValueError, PermissionError, LookupError, TimeoutError) as error:
+            editor.set_error(str(error))
+        except Exception:
+            editor.set_error("Kunde inte spara uppgiften. Försök igen.")
+
+    def _upsert_task(self, task):
+        if self.task_page is None:
+            return
+        tasks = [existing for existing in self.task_page.tasks if existing.id != task.id]
+        if task.status.value == "Senare":
+            tasks.append(task)
+        self.task_page = self.task_page.model_copy(update={"tasks": tasks})
+        self._rebuild_filter_buttons()
+        self._render_tasks()
+        self._safe_update()
 
     def _set_status(self, value: str, color: str):
         self.status_text.value = value

@@ -14,11 +14,11 @@ Målet med dokumentet är att en människa snabbt och enkelt ska få en övergri
 
 | Område | Antal | Innehåll |
 |---|---:|---|
-| Enhetstester | 90 | Datamodeller, lagring, migrering, historikregler och familjeanslutning |
-| Komponenttester | 108 | Vyernas och komponenternas logik utan webbläsare |
-| PWA- och distributionstester | 88 | Manifest, Apps Script-API, familjebrygga, byggfiler, sidmallar och de två repona |
+| Enhetstester | 95 | Datamodeller, lagring, migrering, historikregler och familjeanslutning |
+| Komponenttester | 117 | Vyernas och komponenternas logik utan webbläsare |
+| PWA- och distributionstester | 90 | Manifest, Apps Script-API, familjebrygga, byggfiler, sidmallar och de två repona |
 | GUI/E2E-tester | 75 | Verkliga användarflöden i Chromium |
-| **Totalt** | **361** | |
+| **Totalt** | **377** | |
 
 GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den byggda appen och deploy-repot finns lokalt; annars markeras de som överhoppade.
 
@@ -52,6 +52,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_completed_task_requires_both_completion_fields` | Klar kräver både faktisk utförare och sluttid. |
 | `test_completed_task_accepts_actual_completer` | En annan familjemedlem än ansvarig får vara faktisk utförare. |
 | `test_non_completed_task_rejects_stale_completion_fields` | Aktiva uppgifter får inte bära kvar gamla slutförandefält. |
+| `test_task_draft_normalizes_title_and_validates_assignee` | Ett nytt eller redigerat uppgiftsutkast rensar titeln och godtar bara beslutade ansvariga. |
 | `test_accepts_valid_read_only_bootstrap` | Ett komplett skrivskyddat bootstrap-svar kan valideras. |
 | `test_rejects_unknown_member` | Okända personer isoleras av modellvalideringen. |
 
@@ -133,7 +134,11 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_bootstrap_succeeds_when_cache_write_fails` | En lyckad nätverkssynkning visas även om den lokala cache-skrivningen misslyckas. |
 | `test_bootstrap_requires_connected_device` | Bootstrap gör inget nätverksanrop från en oansluten enhet. |
 | `test_cached_bootstrap_ignores_invalid_cache` | Trasig cache ignoreras säkert och används inte som familjedata. |
+| `test_cached_bootstrap_restores_valid_cache_without_network` | Giltig familjecache kan visas direkt utan något nätverksanrop. |
 | `test_list_later_and_history_use_separate_read_actions` | Senare och Historik använder separata läsoperationer och skickar rätt enhetsautentisering. |
+| `test_create_task_sends_stable_id_without_member_identity` | Skapa skickar klientens stabila ID men inget valbart medlemsnamn som aktör. |
+| `test_update_task_sends_expected_version` | Redigering skickar den senast kända versionen för säker samtidighetskontroll. |
+| `test_update_task_exposes_latest_row_on_version_conflict` | En versionskonflikt ger klienten serverns senaste rad i stället för att skriva över den. |
 | `test_invalid_local_state_does_not_make_network_request` | Trasig lokal anslutningsdata ignoreras utan att något familjeanrop görs. |
 | `test_disconnect_removes_persisted_connection` | Koppla från tar bort den separat sparade familjeanslutningen. |
 
@@ -218,8 +223,21 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 |---|---|
 | `test_deadline_text_marks_overdue_in_red_state` | En passerad deadline visas som försenad med rätt antal dagar. |
 | `test_row_exposes_assignee_and_overdue_deadline` | Den kompakta raden visar ansvarig och röd förseningsmarkering. |
+| `test_row_shows_who_reassigned_current_assignee` | Raden visar vem som satte nuvarande ansvarig när uppgiften har omfördelats. |
 | `test_all_and_mine_filters_sort_and_count_tasks` | Alla/Mina filtrerar, räknar och sorterar Aktuell-listan enligt familjereglerna. |
 | `test_empty_mine_filter_has_clear_message` | Ett tomt Mina-filter ger ett tydligt meddelande. |
+| `test_create_editor_adds_returned_task_and_updates_cache` | En lyckad skapning visas direkt och sparas i familjecachen. |
+| `test_create_retry_reuses_same_client_task_id` | Ett nytt försök efter timeout återanvänder samma klient-ID och kan inte skapa en dubblett. |
+| `test_update_conflict_loads_latest_task_without_overwriting` | En samtidig ändring laddas in i formuläret och skrivs inte över tyst. |
+
+### Familjens uppgiftsformulär — `tests/components/test_family_task_editor.py`
+
+| Testfall | Vad testet kontrollerar |
+|---|---|
+| `test_create_form_defaults_to_all_and_uses_clear_labels` | Ny uppgift använder tydliga etiketter och Alla som standardansvarig. |
+| `test_draft_parses_deadline_and_clear_action_removes_it` | Deadline läses som datum och kan tas bort igen. |
+| `test_edit_form_shows_assignment_and_latest_editor` | Redigering visar vem som skapade, tilldelade och senast ändrade uppgiften. |
+| `test_invalid_deadline_blocks_submit_with_swedish_message` | Ett felaktigt datum stoppas med ett tydligt svenskt felmeddelande. |
 
 ### Familjens övriga läsvyer — `tests/components/test_family_task_pages.py`
 
@@ -228,6 +246,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_later_page_loads_separate_endpoint` | Familjens Senare-vy använder `listLater` och visar ett tydligt tomläge. |
 | `test_history_page_has_no_restore_action` | Familjens Historik använder `listHistory` och saknar återställningsåtgärd. |
 | `test_favorites_page_renders_bootstrap_favorites` | Familjens Snabblista visar aktiva favoriter från bootstrap. |
+| `test_later_page_edits_active_task_in_place` | En Senare-uppgift kan redigeras och ersätts med serverns uppdaterade version. |
 
 ### Snabbinmatning — `tests/components/test_quick_add.py`
 
@@ -383,6 +402,8 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_member_identity_comes_from_device_token` | Servern härleder medlemmen från enhetsnyckeln och accepterar inte ett självrapporterat namn från klienten. |
 | `test_rejects_wrong_key_before_action_dispatch` | Fel enhetsnyckel nekas innan någon API-åtgärd körs. |
 | `test_supports_ping_bootstrap_later_history_and_probe_operations` | API:t har ping, bootstrap, separat Senare/Historik och dubblettskyddad provskrivning. |
+| `test_create_and_update_are_authenticated_idempotent_and_versioned` | Skapa och redigera autentiseras, låses, dubblettskyddas och versionskontrolleras. |
+| `test_assignment_audit_changes_only_when_assignee_changes` | Tilldelad av och tid ändras enbart när ansvarig faktiskt byts. |
 | `test_all_api_responses_use_stable_envelope` | Alla API-svar använder samma fält för data, fel, servertid och version. |
 | `test_bootstrap_reads_only_current_tasks_members_and_favorites` | Normal Familj-start läser bara Aktuell, aktiva medlemmar och aktiva favoriter. |
 | `test_bootstrap_does_not_read_history_sheet` | Historik hämtas aldrig i normal bootstrap. |
@@ -466,6 +487,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_switches_directly_from_family_back_to_private` | Användaren öppnar Familj och trycker sedan direkt på Privat utan att använda nedersta navigationen. | Familjens anslutningsvy får inte ligga kvar när huvudläget byts. |
 | `test_all_pages_remain_reachable_after_successful_family_response` | Appen tar emot en lyckad familjerespons, visar en försenad Aktuell-uppgift, filtrerar Mina och går därefter via Privat och Jobb till Checklista, Snabblistan, Historik och Senare. | Familjesvaret får inte låsa gränssnittet; Aktuell-lista, deadline, filter och all befintlig navigation ska fungera. |
 | `test_family_device_key_can_be_entered_and_reveal_control_used` | Användaren skriver en enhetsnyckel och använder fältets ögonknapp utan att nyckeln ändras. | Nyckeln måste gå att mata in och kontrollera visuellt före anslutning. |
+| `test_family_task_can_be_created_and_edited` | Användaren ansluter Familj, skapar en uppgift med deadline, ser auditinformation och ändrar titeln. | Hela skrivflödet och dess tillgängliga mobilkontroller måste fungera tillsammans. |
 | `test_boot_has_no_console_errors` | Appen öppnas och fungerar utan fel under starten. | Dolda startfel kan annars ge tom sida eller trasiga funktioner senare. |
 
 ### Checklista — `tests/e2e/test_checklist_page.py`

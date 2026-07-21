@@ -54,6 +54,24 @@ class FamilyAppsScriptTests(unittest.TestCase):
         self.assertIn('case "probeRead"', self.code)
         self.assertIn('=== requestId', self.code)
 
+    def test_create_and_update_are_authenticated_idempotent_and_versioned(self):
+        self.assertIn('case "createTask"', self.code)
+        self.assertIn('case "updateTask"', self.code)
+        self.assertIn("function createTask_(request, member)", self.code)
+        self.assertIn("function updateTask_(request, member)", self.code)
+        self.assertIn("withTaskLock_", self.code)
+        self.assertIn("duplicate: true", self.code)
+        self.assertIn('apiError_("VERSION_CONFLICT", { latestTask: existing.task })', self.code)
+        self.assertIn('throw apiError_("INVALID_INPUT")', self.code)
+        self.assertIn("if (error?.apiCode)", self.code)
+        self.assertIn("version: existing.task.version + 1", self.code)
+        self.assertNotIn("request.member", self.code)
+
+    def test_assignment_audit_changes_only_when_assignee_changes(self):
+        self.assertIn("if (input.assignee !== existing.task.assignee)", self.code)
+        self.assertIn("updated.assigned_by = member", self.code)
+        self.assertIn("updated.assigned_at = now", self.code)
+
     def test_all_api_responses_use_stable_envelope(self):
         for field in ("ok", "data", "error", "server_time", "api_version"):
             self.assertIn(field + ":", self.code)

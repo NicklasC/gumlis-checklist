@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 from tests.support.browser_case import BrowserTestCase, e2e_test
 
 
@@ -40,6 +42,7 @@ class NavigationTests(BrowserTestCase):
         self.assertTrue(self.page.get_by_text("Allt klart på den privata listan!", exact=True).is_visible())
 
     def test_all_pages_remain_reachable_after_successful_family_response(self):
+        overdue_deadline = (date.today() - timedelta(days=2)).isoformat()
         self.page.evaluate(
             """() => {
                 window.gumliFamilyBridge.forward = (message, worker) => {
@@ -61,7 +64,7 @@ class NavigationTests(BrowserTestCase):
                                             status: 'Aktuell', assignee: 'Nicklas',
                                             assigned_by: 'Nicklas', assigned_at: '2026-07-20T08:00:00+00:00',
                                             created_by: 'Nicklas', created_at: '2026-07-20T08:00:00+00:00',
-                                            deadline: '2026-07-18', updated_by: 'Nicklas',
+                                            deadline: '__OVERDUE_DEADLINE__', updated_by: 'Nicklas',
                                             updated_at: '2026-07-20T08:00:00+00:00',
                                             completed_by: null, completed_at: null, version: 1
                                         },
@@ -83,7 +86,7 @@ class NavigationTests(BrowserTestCase):
                         }
                     });
                 };
-            }"""
+            }""".replace("__OVERDUE_DEADLINE__", overdue_deadline)
         )
 
         self.set_mode("Familj")
@@ -92,12 +95,17 @@ class NavigationTests(BrowserTestCase):
         self.page.get_by_text("Ansluten som Nicklas", exact=True).wait_for(
             state="visible", timeout=10_000
         )
-        self.page.get_by_text("Försenad 2 dagar", exact=True).wait_for(state="visible", timeout=10_000)
-        self.assertTrue(self.page.get_by_text("Försenad familjeuppgift", exact=True).is_visible())
+        overdue_task = self.page.locator('flt-semantics[role="button"]').filter(
+            has_text="Försenad familjeuppgift"
+        )
+        overdue_task.wait_for(state="visible", timeout=10_000)
+        self.assertIn("Försenad 2 dagar", overdue_task.inner_text())
         self.assertTrue(self.page.get_by_role("button", name="Alla (2)", exact=True).is_visible())
         self.assertTrue(self.page.get_by_role("button", name="Mina (1)", exact=True).is_visible())
         self.page.get_by_role("button", name="Mina (1)", exact=True).click()
-        self.page.get_by_text("Gemensam familjeuppgift", exact=True).wait_for(state="hidden")
+        self.page.locator('flt-semantics[role="button"]').filter(
+            has_text="Gemensam familjeuppgift"
+        ).wait_for(state="hidden")
 
         self.select_tab("Snabblistan")
         self.page.get_by_text("Familj – Snabblistan", exact=True).wait_for(state="visible")
@@ -152,6 +160,108 @@ class NavigationTests(BrowserTestCase):
         self.assertEqual(reveal_button.count(), 1)
         reveal_button.click()
         self.assertEqual(field.input_value(), "SynligEnhetsnyckel123456789012345")
+
+    def test_family_task_can_be_created_and_edited(self):
+        self.page.evaluate(
+            """() => {
+                window.gumliFamilyBridge.forward = (message, worker) => {
+                    const action = message.payload?.action;
+                    const input = message.payload?.task ?? {};
+                    const timestamp = '2026-07-21T08:00:00+00:00';
+                    let data;
+                    if (action === 'ping') {
+                        data = {member: 'Nicklas'};
+                    } else if (action === 'bootstrap') {
+                        data = {
+                            tasks: [],
+                            members: [{name: 'Nicklas', active: true, sort_order: 1}],
+                            favorites: [],
+                            invalidRows: []
+                        };
+                    } else if (action === 'createTask' || action === 'updateTask') {
+                        data = {
+                            task: {
+                                id: input.id,
+                                title: input.title,
+                                status: 'Aktuell',
+                                assignee: input.assignee,
+                                assigned_by: 'Nicklas',
+                                assigned_at: timestamp,
+                                created_by: 'Nicklas',
+                                created_at: timestamp,
+                                deadline: input.deadline,
+                                updated_by: 'Nicklas',
+                                updated_at: timestamp,
+                                completed_by: null,
+                                completed_at: null,
+                                version: action === 'createTask' ? 1 : input.version + 1
+                            }
+                        };
+                    } else {
+                        data = {tasks: [], invalidRows: []};
+                    }
+                    worker.postMessage({
+                        type: 'gumli-family-response',
+                        requestId: message.requestId,
+                        response: {
+                            ok: true,
+                            data,
+                            error: null,
+                            server_time: timestamp,
+                            api_version: 'family-test'
+                        }
+                    });
+                };
+            }"""
+        )
+
+        self.set_mode("Familj")
+        self.page.get_by_role("textbox", name="Enhetsnyckel").fill("n" * 48)
+        self.page.get_by_role("button", name="Anslut den här enheten", exact=True).click()
+        self.page.get_by_text("Ansluten som Nicklas", exact=True).wait_for(
+            state="visible", timeout=10_000
+        )
+        self.page.get_by_text("Synkad nyss", exact=True).wait_for(
+            state="visible", timeout=10_000
+        )
+
+        self.page.get_by_role("button", name="Ny familjeuppgift", exact=True).click()
+        self.page.get_by_text("Ny familjeuppgift", exact=True).wait_for(state="visible")
+        self.page.get_by_role("textbox", name="Uppgift").fill("GUI-familjeuppgift")
+        self.page.get_by_role("textbox", name="Deadline (valfritt)").fill("2026-07-28")
+        self.page.wait_for_timeout(300)
+        self.page.get_by_role("button", name="Skapa uppgift", exact=True).click()
+        self.page.get_by_text("Uppgiften skapad", exact=True).wait_for(
+            state="visible", timeout=10_000
+        )
+        created_task = self.page.locator('flt-semantics[role="button"]').filter(
+            has_text="GUI-familjeuppgift"
+        )
+        created_task.wait_for(
+            state="visible", timeout=10_000
+        )
+        created_task.click()
+        self.page.get_by_text("Redigera familjeuppgift", exact=True).wait_for(state="visible")
+        self.assertTrue(self.page.get_by_text("Skapad av Nicklas", exact=False).is_visible())
+        self.assertTrue(self.page.get_by_text("Senast ändrad av Nicklas", exact=False).is_visible())
+        title_field = self.page.get_by_role("textbox", name="Uppgift")
+        title_field.fill("Redigerad GUI-uppgift")
+        self.page.wait_for_timeout(300)
+        self.page.get_by_role("button", name="Spara ändringar", exact=True).click()
+        self.page.get_by_text("Ändringar sparade", exact=True).wait_for(
+            state="visible", timeout=10_000
+        )
+        self.page.locator('flt-semantics[role="button"]').filter(
+            has_text="Redigerad GUI-uppgift"
+        ).wait_for(
+            state="visible", timeout=10_000,
+        )
+        self.assertEqual(
+            self.page.locator('flt-semantics[role="button"]').filter(
+                has_text="GUI-familjeuppgift"
+            ).count(),
+            0,
+        )
 
     def test_boot_has_no_console_errors(self):
         self.assert_no_unexpected_console_errors()

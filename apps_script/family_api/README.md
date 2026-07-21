@@ -27,17 +27,23 @@ Följande värden konfigureras i Apps Script-projektets inställningar och får 
 `Uppgifter` samt bladen `Medlemmar` och `Favoriter`. Funktionen ska bara köras i det
 redan beslutade privata arket `gumlis-checklist-familj`.
 
-Det skrivskyddade API-kontraktet består inledningsvis av:
+API-kontraktet består av:
 
 - `ping`: verifierar enheten och returnerar medlemmen.
 - `bootstrap`: returnerar endast Aktuell, aktiva medlemmar, aktiva favoriter och servertid.
 - `listLater`: returnerar Senare separat.
 - `listHistory`: returnerar endast uppgifter slutförda under de senaste 14 dagarna.
+- `createTask`: skapar en Aktuell-uppgift idempotent med klientens stabila ID.
+- `updateTask`: ändrar titel, ansvarig eller deadline med versionskontroll.
 
 Historik och raderade uppgifter ingår aldrig i `bootstrap`. Ogiltiga manuella rader
 isoleras som `invalidRows` och blockerar inte övriga giltiga rader.
 
 Alla svar använder fälten `ok`, `data`, `error`, `server_time` och `api_version`.
+
+Skrivoperationerna använder Apps Script-lås. Servern härleder alltid aktören från
+enhetsnyckeln, uppdaterar auditfälten och returnerar senaste rad vid
+`VERSION_CONFLICT`; klienten skickar aldrig ett valbart medlemsnamn som aktör.
 
 `doPost` finns för ett direkt CORS-test. `doGet` levererar en iframe-brygga som använder `google.script.run` om direkt browser-POST inte fungerar. Enhetsnyckeln skickas i requestens body eller `postMessage`, aldrig i URL:en.
 

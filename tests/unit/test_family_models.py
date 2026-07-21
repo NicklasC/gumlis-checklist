@@ -7,6 +7,7 @@ from src.models.family import (
     FamilyFavorite,
     FamilyMember,
     FamilyTask,
+    FamilyTaskDraft,
     FamilyTaskStatus,
 )
 
@@ -68,6 +69,12 @@ class FamilyTaskModelTests(unittest.TestCase):
                     completed_at="2026-07-20T19:00:00+02:00",
                 )
             )
+
+    def test_task_draft_normalizes_title_and_validates_assignee(self):
+        draft = FamilyTaskDraft(title="  Töm soporna  ", assignee="Ida")
+        self.assertEqual(draft.title, "Töm soporna")
+        with self.assertRaises(ValidationError):
+            FamilyTaskDraft(title="Töm soporna", assignee="Någon")
 
 
 class FamilyBootstrapModelTests(unittest.TestCase):

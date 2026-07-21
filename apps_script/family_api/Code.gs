@@ -15,6 +15,9 @@ const MEMBERS = Object.freeze(["Nicklas", "Ida", "Thor", "Johanna"]);
 const ASSIGNEES = Object.freeze(["Alla"].concat(MEMBERS));
 const ACTORS = Object.freeze(MEMBERS.concat(["Automatik", "Nicklas (Sheet)"]));
 const TASK_STATUSES = Object.freeze(["Aktuell", "Senare", "Klar", "Raderad"]);
+const STABLE_ERROR_CODES = Object.freeze([
+  "UNAUTHORIZED", "INVALID_INPUT", "NOT_FOUND", "VERSION_CONFLICT", "TIMEOUT", "SERVER_ERROR",
+]);
 const TASK_HEADERS = Object.freeze([
   "Uppgift", "Status", "Ansvarig", "Tilldelad av", "Tilldelad", "Skapad av",
   "Skapad", "Deadline", "Senast ändrad av", "Uppdaterad", "Slutförd av",
@@ -58,6 +61,10 @@ function handleRequest(request) {
         return successResponse_(listLaterData_(), apiVersion);
       case "listHistory":
         return successResponse_(listHistoryData_(), apiVersion);
+      case "createTask":
+        return successResponse_(createTask_(request, member), apiVersion);
+      case "updateTask":
+        return successResponse_(updateTask_(request, member), apiVersion);
       case "probeWrite":
         return successResponse_(probeWrite_(request, member), apiVersion);
       case "probeRead":
@@ -66,7 +73,10 @@ function handleRequest(request) {
         return failureResponse_("INVALID_INPUT", apiVersion);
     }
   } catch (error) {
-    return failureResponse_("SERVER_ERROR", apiVersion);
+    const errorCode = STABLE_ERROR_CODES.includes(error?.apiCode)
+      ? error.apiCode
+      : "SERVER_ERROR";
+    return failureResponse_(errorCode, apiVersion, error?.apiData || null);
   }
 }
 
@@ -87,14 +97,21 @@ function successResponse_(data, apiVersion) {
   };
 }
 
-function failureResponse_(errorCode, apiVersion) {
+function failureResponse_(errorCode, apiVersion, data) {
   return {
     ok: false,
-    data: null,
+    data: data || null,
     error: errorCode,
     server_time: new Date().toISOString(),
     api_version: apiVersion,
   };
+}
+
+function apiError_(code, data) {
+  const error = new Error(code);
+  error.apiCode = code;
+  error.apiData = data || null;
+  return error;
 }
 
 function setupProbeSheet() {
@@ -209,6 +226,157 @@ function listHistoryData_() {
       return issue.sheet === TASKS_SHEET_NAME;
     }),
   };
+}
+
+function createTask_(request, member) {
+  const input = taskMutationInput_(request?.task, false);
+  return withTaskLock_(function () {
+    const rows = readTaskRows_();
+    const existing = findTaskById_(rows, input.id);
+    if (existing) {
+      return { task: existing.task, duplicate: true };
+    }
+
+    const now = new Date().toISOString();
+    const task = {
+      title: input.title,
+      status: "Aktuell",
+      assignee: input.assignee,
+      assigned_by: member,
+      assigned_at: now,
+      created_by: member,
+      created_at: now,
+      deadline: input.deadline,
+      updated_by: member,
+      updated_at: now,
+      completed_by: null,
+      completed_at: null,
+      id: input.id,
+      version: 1,
+    };
+    sheetsRequest_(
+      valuesPath_("'" + TASKS_SHEET_NAME + "'!A:N") +
+        ":append?valueInputOption=RAW&insertDataOption=INSERT_ROWS",
+      {
+        method: "post",
+        payload: { majorDimension: "ROWS", values: [taskToRow_(task)] },
+      }
+    );
+    return { task: task, duplicate: false };
+  });
+}
+
+function updateTask_(request, member) {
+  const input = taskMutationInput_(request?.task, true);
+  return withTaskLock_(function () {
+    const rows = readTaskRows_();
+    const existing = findTaskById_(rows, input.id);
+    if (!existing) {
+      throw apiError_("NOT_FOUND");
+    }
+    if (existing.task.version !== input.version) {
+      throw apiError_("VERSION_CONFLICT", { latestTask: existing.task });
+    }
+    if (!["Aktuell", "Senare"].includes(existing.task.status)) {
+      throw apiError_("INVALID_INPUT");
+    }
+
+    const now = new Date().toISOString();
+    const updated = Object.assign({}, existing.task, {
+      title: input.title,
+      assignee: input.assignee,
+      deadline: input.deadline,
+      updated_by: member,
+      updated_at: now,
+      version: existing.task.version + 1,
+    });
+    if (input.assignee !== existing.task.assignee) {
+      updated.assigned_by = member;
+      updated.assigned_at = now;
+    }
+    const range = "'" + TASKS_SHEET_NAME + "'!A" + existing.rowNumber + ":N" + existing.rowNumber;
+    writeValues_(range, [taskToRow_(updated)]);
+    return { task: updated };
+  });
+}
+
+function taskMutationInput_(value, requireVersion) {
+  try {
+    if (!value || Array.isArray(value) || typeof value !== "object") {
+      throw apiError_("INVALID_INPUT");
+    }
+    const input = {
+      id: boundedText_(value.id, 128),
+      title: boundedText_(value.title, 200),
+      assignee: allowedValue_(value.assignee || "Alla", ASSIGNEES),
+      deadline: optionalDate_(value.deadline),
+    };
+    if (requireVersion) {
+      input.version = positiveInteger_(value.version);
+    }
+    return input;
+  } catch (error) {
+    if (error?.apiCode) {
+      throw error;
+    }
+    throw apiError_("INVALID_INPUT");
+  }
+}
+
+function boundedText_(value, maxLength) {
+  const normalized = requiredText_(value);
+  if (normalized.length > maxLength) {
+    throw apiError_("INVALID_INPUT");
+  }
+  return normalized;
+}
+
+function withTaskLock_(callback) {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) {
+    throw apiError_("TIMEOUT");
+  }
+  try {
+    return callback();
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function readTaskRows_() {
+  const response = sheetsRequest_(valuesPath_("'" + TASKS_SHEET_NAME + "'!A2:N"), {
+    method: "get",
+  });
+  return response.values || [];
+}
+
+function findTaskById_(rows, taskId) {
+  for (let index = 0; index < rows.length; index += 1) {
+    const row = rows[index] || [];
+    if (String(row[12] || "").trim() === taskId) {
+      return { rowNumber: index + 2, task: parseTaskRow_(row) };
+    }
+  }
+  return null;
+}
+
+function taskToRow_(task) {
+  return [
+    task.title,
+    task.status,
+    task.assignee,
+    task.assigned_by,
+    task.assigned_at,
+    task.created_by,
+    task.created_at,
+    task.deadline || "",
+    task.updated_by,
+    task.updated_at,
+    task.completed_by || "",
+    task.completed_at || "",
+    task.id,
+    task.version,
+  ];
 }
 
 function readFamilyRanges_() {
