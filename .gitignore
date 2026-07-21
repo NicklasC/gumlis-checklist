@@ -36,3 +36,7 @@ data/
 
 # Temporary scratch and development/test logs
 scratch/
+
+# Local Codex/session artifacts; may contain private working material
+._sheet_work/
+.codex-remote-attachments/
