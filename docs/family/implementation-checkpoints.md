@@ -15,13 +15,13 @@ anslutning är verifierade och publicerade.
 - `listLater` hålls separat.
 - Felaktiga Sheet-rader isoleras utan att blockera giltiga rader.
 - Alla API-svar följer ett stabilt svarskuvert.
-- Produktionsbladen, Apps Script version 5 och beständig anslutning som Nicklas är verifierade.
+- Produktionsbladen, Apps Script version 8 och beständig anslutning som Nicklas är verifierade.
 
-## 3. Aktuell-lista och synkning – lokalt godkänd
+## 3. Aktuell-lista och synkning – Godkänd
 
 Cache, synkstatus, Mina/Alla-filter, kompakt mobilrad och deadlineindikering.
 
-### 3A. Aktuell-listans skrivskyddade grund – lokalt godkänd
+### 3A. Aktuell-listans skrivskyddade grund – Godkänd
 
 - [x] Separat Familj-bootstrap-cache i IndexedDB.
 - [x] Aktuell-lista visas efter lyckad anslutning.
@@ -32,9 +32,10 @@ Cache, synkstatus, Mina/Alla-filter, kompakt mobilrad och deadlineindikering.
 - [x] Giltig cache återställs utan nätverksanrop; trasig cache ignoreras.
 - [x] Enhets-, komponent- och GUI-regression godkända lokalt.
 
-Kontrollpunkt 3 är verifierad lokalt tillsammans med cache- och offline-felstater.
+Kontrollpunkt 3 är verifiererad både lokalt och mot produktionsarket. Tomma
+checkboxrader i Sheet ignoreras och ger inte längre falska radfel.
 
-### 3B. Familjens läs-only-nedernavigation – lokalt godkänd
+### 3B. Familjens läs-only-nedernavigation – Godkänd
 
 - [x] `listLater` och `listHistory` har separata autentiserade repositoryanrop.
 - [x] Apps Script filtrerar Historik till de senaste 14 dagarna utan att läsa en historikflik.
@@ -44,7 +45,7 @@ Kontrollpunkt 3 är verifierad lokalt tillsammans med cache- och offline-felstat
 
 Skrivoperationer och skapande från Snabblistan hör till kontrollpunkt 4 och 7.
 
-## 4. Skapa och redigera – lokalt godkänd
+## 4. Skapa och redigera – Godkänd
 
 - [x] Uppgift skapas med klientgenererat stabilt ID och serverhärledd medlem.
 - [x] Titel, ansvarig och valfri deadline kan anges och ändras.
@@ -55,8 +56,14 @@ Skrivoperationer och skapande från Snabblistan hör till kontrollpunkt 4 och 7.
 - [x] Konflikt laddar serverns senaste rad och skriver aldrig över den tyst.
 - [x] Aktuell och Senare uppdateras lokalt efter lyckad skrivning.
 - [x] GUI-test verifierar skapa, deadline, auditinformation och redigering.
+- [x] Sen familjeanslutning kan inte längre skriva över en senare Privat/Jobb-navigation.
+- [x] Produktionsprov skapades och redigerades via PWA:n, bekräftades som version 2 i
+      Sheet och rensades därefter utan kvarlämnad testdata.
+- [x] Apps Script version 8 använder samma produktionsadress som tidigare.
+- [x] GitHub Pages commit `ebb693d`, build `1efae37b70aa3571`, är verifierad live.
+- [x] Full regression: 380/380 tester godkända.
 
-Kontrollpunkten är inte publicerad mot produktions-Apps Script eller GitHub Pages än.
+Kontrollpunkt 4 är publicerad och produktionsverifierad 2026-07-22.
 
 ## 5. Senare och statuslivscykel – Väntar
 

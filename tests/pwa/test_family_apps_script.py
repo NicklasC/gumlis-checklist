@@ -95,6 +95,11 @@ class FamilyAppsScriptTests(unittest.TestCase):
         self.assertIn("parsed.push(parser(row || []))", self.code)
         self.assertIn("invalidRows.push", self.code)
 
+    def test_blank_checkbox_rows_are_not_reported_as_invalid(self):
+        self.assertIn("const normalized = String(value ||", self.code)
+        self.assertIn('normalized === "" || normalized === "false"', self.code)
+        self.assertIn(".trim().toLowerCase()", self.code)
+
     def test_setup_uses_single_status_based_tasks_sheet(self):
         self.assertIn("function setupFamilySheets()", self.code)
         self.assertIn('TASKS_SHEET_NAME = "Uppgifter"', self.code)

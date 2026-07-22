@@ -412,7 +412,10 @@ function parseFamilyRows_(rows) {
 function parseRows_(rows, sheetName, parser, invalidRows) {
   const parsed = [];
   (rows || []).forEach(function (row, index) {
-    if ((row || []).every(function (value) { return String(value || "").trim() === ""; })) {
+    if ((row || []).every(function (value) {
+      const normalized = String(value || "").trim().toLowerCase();
+      return normalized === "" || normalized === "false";
+    })) {
       return;
     }
     try {
