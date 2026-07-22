@@ -90,9 +90,29 @@ Flytt, radering och automatisk aktivering sju dagar före deadline.
 
 Kontrollpunkt 5 är publicerad och produktionsverifierad 2026-07-22.
 
-## 6. Slutförande och historik – Väntar
+## 6. Slutförande och historik – lokalt godkänd
 
 Faktisk utförare, serverstämplad sluttid och lat 14-dagars historik utan återställning.
+
+- [x] Aktuell och Senare har en direkt, tillgänglig knapp för att markera en uppgift
+      som klar.
+- [x] Klienten skickar endast ID, Version och målet Klar; Apps Script härleder
+      Slutförd av från enhetsnyckeln och sätter Slutförd från serverns klocka.
+- [x] Slutförandet är låst och versionsskyddat och uppdaterar Senast ändrad av,
+      Uppdaterad och Version.
+- [x] Slutförd uppgift tas bort lokalt från Aktuell eller Senare efter lyckat svar.
+- [x] Historik hämtas fortfarande först när Historik öppnas och ingår aldrig i bootstrap.
+- [x] Endast poster från exakt de senaste 14 dygnen returneras; äldre Sheet-rader
+      bevaras och skrivs inte om eller rensas.
+- [x] Historik sorteras nyast slutförd först, visar faktisk utförare och sluttid och
+      saknar återställningsåtgärd.
+- [x] GUI-test verifierar skapa, direkt slutförande, tom Aktuell, Historikrad,
+      utföraraudit och avsaknad av återställningsknapp.
+- [x] Lokal GitHub Pages-build `4d278d6183e2fba8` används av GUI-regressionen.
+- [x] Full regression: 394/394 tester godkända.
+
+Kontrollpunkten är färdig lokalt men ännu inte publicerad till Apps Script eller
+GitHub Pages.
 
 ## 7. Snabblistan – Väntar
 

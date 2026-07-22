@@ -141,16 +141,16 @@ class NavigationTests(BrowserTestCase):
         self.page.get_by_text("Ansluten som Nicklas", exact=True).wait_for(
             state="visible", timeout=10_000
         )
-        overdue_task = self.page.locator('flt-semantics[role="button"]').filter(
-            has_text="Försenad familjeuppgift"
+        overdue_task = self.page.get_by_role(
+            "button", name="Redigera Försenad familjeuppgift", exact=False
         )
         overdue_task.wait_for(state="visible", timeout=10_000)
         self.assertIn("Försenad 2 dagar", overdue_task.inner_text())
         self.assertTrue(self.page.get_by_role("button", name="Alla (2)", exact=True).is_visible())
         self.assertTrue(self.page.get_by_role("button", name="Mina (1)", exact=True).is_visible())
         self.page.get_by_role("button", name="Mina (1)", exact=True).click()
-        self.page.locator('flt-semantics[role="button"]').filter(
-            has_text="Gemensam familjeuppgift"
+        self.page.get_by_role(
+            "button", name="Redigera Gemensam familjeuppgift", exact=False
         ).wait_for(state="hidden")
 
         self.select_tab("Snabblistan")
@@ -244,17 +244,25 @@ class NavigationTests(BrowserTestCase):
                         };
                         data = {task};
                     } else if (action === 'changeStatus' || action === 'deleteTask') {
+                        const completed = action === 'changeStatus' && input.status === 'Klar';
                         task = {
                             ...task,
                             status: action === 'deleteTask' ? 'Raderad' : input.status,
                             updated_by: 'Nicklas',
                             updated_at: timestamp,
+                            completed_by: completed ? 'Nicklas' : null,
+                            completed_at: completed ? timestamp : null,
                             version: input.version + 1
                         };
                         data = {task};
                     } else if (action === 'listLater') {
                         data = {
                             tasks: task?.status === 'Senare' ? [task] : [],
+                            invalidRows: []
+                        };
+                    } else if (action === 'listHistory') {
+                        data = {
+                            tasks: task?.status === 'Klar' ? [task] : [],
                             invalidRows: []
                         };
                     } else {
@@ -294,8 +302,8 @@ class NavigationTests(BrowserTestCase):
         self.page.get_by_text("Uppgiften skapad", exact=True).wait_for(
             state="visible", timeout=10_000
         )
-        created_task = self.page.locator('flt-semantics[role="button"]').filter(
-            has_text="GUI-familjeuppgift"
+        created_task = self.page.get_by_role(
+            "button", name="Redigera GUI-familjeuppgift", exact=False
         )
         created_task.wait_for(
             state="visible", timeout=10_000
@@ -311,20 +319,20 @@ class NavigationTests(BrowserTestCase):
         self.page.get_by_text("Ändringar sparade", exact=True).wait_for(
             state="visible", timeout=10_000
         )
-        self.page.locator('flt-semantics[role="button"]').filter(
-            has_text="Redigerad GUI-uppgift"
+        self.page.get_by_role(
+            "button", name="Redigera Redigerad GUI-uppgift", exact=False
         ).wait_for(
             state="visible", timeout=10_000,
         )
         self.assertEqual(
-            self.page.locator('flt-semantics[role="button"]').filter(
-                has_text="GUI-familjeuppgift"
+            self.page.get_by_role(
+                "button", name="Redigera GUI-familjeuppgift", exact=False
             ).count(),
             0,
         )
 
-        edited_task = self.page.locator('flt-semantics[role="button"]').filter(
-            has_text="Redigerad GUI-uppgift"
+        edited_task = self.page.get_by_role(
+            "button", name="Redigera Redigerad GUI-uppgift", exact=False
         )
         edited_task.click()
         self.page.get_by_role("button", name="Flytta till Senare", exact=True).click()
@@ -332,8 +340,8 @@ class NavigationTests(BrowserTestCase):
             state="visible", timeout=10_000
         )
         self.select_tab("Senare")
-        later_task = self.page.locator('flt-semantics[role="button"]').filter(
-            has_text="Redigerad GUI-uppgift"
+        later_task = self.page.get_by_role(
+            "button", name="Redigera Redigerad GUI-uppgift", exact=False
         )
         later_task.wait_for(state="visible", timeout=10_000)
         later_task.click()
@@ -345,6 +353,39 @@ class NavigationTests(BrowserTestCase):
         )
         self.page.get_by_text("Inga familjeuppgifter i Senare", exact=True).wait_for(
             state="visible", timeout=10_000
+        )
+
+        self.select_tab("Checklista")
+        self.page.get_by_role("button", name="Ny familjeuppgift", exact=True).click()
+        self.page.get_by_text("Ny familjeuppgift", exact=True).wait_for(state="visible")
+        self.page.get_by_role("textbox", name="Uppgift").fill("GUI-slutförande")
+        self.page.wait_for_timeout(300)
+        self.page.get_by_role("button", name="Skapa uppgift", exact=True).click()
+        self.page.get_by_text("Uppgiften skapad", exact=True).wait_for(
+            state="visible", timeout=10_000
+        )
+        self.page.get_by_role(
+            "button", name="Markera GUI-slutförande som klar", exact=True
+        ).click()
+        self.page.get_by_text("Uppgiften slutförd", exact=True).wait_for(
+            state="visible", timeout=10_000
+        )
+        self.page.get_by_text("Inga familjeuppgifter i Aktuell", exact=True).wait_for(
+            state="visible", timeout=10_000
+        )
+
+        self.select_tab("Historik")
+        self.page.get_by_text("GUI-slutförande", exact=True).wait_for(
+            state="visible", timeout=10_000
+        )
+        self.page.get_by_text("Slutförd av Nicklas", exact=False).wait_for(
+            state="visible", timeout=10_000
+        )
+        self.assertEqual(
+            self.page.get_by_role(
+                "button", name="Markera GUI-slutförande som klar", exact=True
+            ).count(),
+            0,
         )
 
     def test_boot_has_no_console_errors(self):

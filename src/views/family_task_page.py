@@ -5,7 +5,7 @@ import flet as ft
 from src.core.theme import MINT_GREEN, TEXT_MUTED, TEXT_SECONDARY
 from src.models.family import FamilyTaskPage, FamilyTaskStatus
 from src.repositories.family_repository import FamilyVersionConflict
-from src.views.family_current_view import FamilyTaskRow
+from src.views.family_current_view import FamilyTaskRow, OVERDUE_COLOR
 from src.views.family_task_editor import FamilyTaskEditor
 
 
@@ -90,6 +90,8 @@ class FamilyTaskPageView(ft.Container):
         tasks = list(self.task_page.tasks if self.task_page else [])
         if self.selected_filter == "Mina":
             tasks = [task for task in tasks if task.assignee == self.member]
+        if self.action == "listHistory":
+            tasks.sort(key=lambda task: task.completed_at, reverse=True)
         return tasks
 
     def _rebuild_filter_buttons(self):
@@ -129,6 +131,9 @@ class FamilyTaskPageView(ft.Container):
                 FamilyTaskRow(
                     task,
                     on_open=self._open_edit if self.action == "listLater" else None,
+                    on_complete=(
+                        self._start_completion if self.action == "listLater" else None
+                    ),
                 )
                 for task in tasks
             ]
@@ -143,6 +148,26 @@ class FamilyTaskPageView(ft.Container):
                 self.page.show_dialog(self.editor)
         except (AttributeError, RuntimeError):
             pass
+
+    def _start_completion(self, task):
+        if self.page is not None:
+            self.page.run_task(self._complete_task, task)
+
+    async def _complete_task(self, task):
+        try:
+            saved = await self.repository.complete_task(task)
+            self._upsert_task(saved)
+            self._set_status("Uppgiften slutförd", MINT_GREEN)
+        except FamilyVersionConflict as conflict:
+            self._upsert_task(conflict.latest_task)
+            self._set_status(
+                f"Uppgiften ändrades av {conflict.latest_task.updated_by}",
+                OVERDUE_COLOR,
+            )
+        except (ValueError, PermissionError, LookupError, TimeoutError) as error:
+            self._set_status(str(error), OVERDUE_COLOR)
+        except Exception:
+            self._set_status("Kunde inte slutföra uppgiften. Försök igen.", OVERDUE_COLOR)
 
     async def _save_editor(self, task, draft, editor):
         try:

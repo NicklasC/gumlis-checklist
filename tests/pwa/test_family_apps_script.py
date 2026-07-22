@@ -75,6 +75,23 @@ class FamilyAppsScriptTests(unittest.TestCase):
         self.assertIn("version: existing.task.version + 1", self.code)
         self.assertIn("task.updated_by = member", self.code)
 
+    def test_completion_uses_authenticated_member_and_server_timestamp(self):
+        self.assertIn('["Aktuell", "Senare", "Klar"]', self.code)
+        self.assertIn('if (input.status === "Klar")', self.code)
+        self.assertIn("task.completed_by = member", self.code)
+        self.assertIn("task.completed_at = now", self.code)
+        self.assertNotIn("request.completed_by", self.code)
+        self.assertNotIn("request.completed_at", self.code)
+
+    def test_history_is_filtered_without_cleanup_and_sorted_newest_first(self):
+        history = self.code[
+            self.code.index("function listHistoryData_") : self.code.index("function createTask_")
+        ]
+        self.assertIn("14 * 24 * 60 * 60 * 1000", history)
+        self.assertIn("Date.parse(task.completed_at) >= cutoff", history)
+        self.assertIn("Date.parse(right.completed_at) - Date.parse(left.completed_at)", history)
+        self.assertNotIn("writeValues_", history)
+
     def test_due_later_tasks_are_activated_before_bootstrap(self):
         bootstrap = self.code[self.code.index("function bootstrapData_") : self.code.index("function listLaterData_")]
         self.assertIn("activateDueLaterTasks_();", bootstrap)

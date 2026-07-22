@@ -378,6 +378,36 @@ class FamilyRepositoryTests(unittest.IsolatedAsyncioTestCase):
             },
         )
 
+    async def test_complete_task_requests_server_audited_completed_status(self):
+        token = "n" * 48
+        stored = json.dumps({"deviceToken": token, "member": "Nicklas"})
+        response_task = mutation_task(
+            status="Klar",
+            updated_at="2026-07-20T19:00:00+02:00",
+            completed_by="Nicklas",
+            completed_at="2026-07-20T19:00:00+02:00",
+            version=2,
+        )
+        repo, _, requests = self.make_repository(
+            {"ok": True, "data": {"task": response_task}},
+            stored,
+        )
+
+        completed = await repo.complete_task(FamilyTask.model_validate(mutation_task()))
+
+        self.assertEqual(completed.status, FamilyTaskStatus.COMPLETED)
+        self.assertEqual(completed.completed_by, "Nicklas")
+        self.assertEqual(
+            requests[0],
+            {
+                "action": "changeStatus",
+                "deviceToken": token,
+                "task": {"id": "family-1", "version": 1, "status": "Klar"},
+            },
+        )
+        self.assertNotIn("completed_by", requests[0]["task"])
+        self.assertNotIn("completed_at", requests[0]["task"])
+
     async def test_change_status_rejects_completed_target_locally(self):
         repo, _, requests = self.make_repository({"ok": True})
 

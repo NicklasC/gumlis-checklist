@@ -35,7 +35,7 @@ def family_task_sort_key(task: FamilyTask, today: date | None = None):
 
 def family_deadline_text(task: FamilyTask, today: date | None = None) -> tuple[str, bool]:
     """Return a compact Swedish deadline label and whether it is overdue."""
-    if task.deadline is None:
+    if task.status == FamilyTaskStatus.COMPLETED or task.deadline is None:
         return "", False
     current_day = today or date.today()
     days_late = (current_day - task.deadline).days
@@ -47,7 +47,18 @@ def family_deadline_text(task: FamilyTask, today: date | None = None) -> tuple[s
     return f"Deadline {task.deadline.day}/{task.deadline.month}", False
 
 
-class FamilyTaskRow(ft.Semantics):
+def family_completion_text(task: FamilyTask) -> str:
+    """Return the immutable completion audit shown in Family history."""
+    if task.completed_by is None or task.completed_at is None:
+        return ""
+    completed_at = task.completed_at.astimezone()
+    return (
+        f"Slutförd av {task.completed_by} · "
+        f"{completed_at.day}/{completed_at.month} {completed_at:%H:%M}"
+    )
+
+
+class FamilyTaskRow(ft.Container):
     """Compact family task row with an optional edit/details action."""
 
     def __init__(
@@ -55,6 +66,7 @@ class FamilyTaskRow(ft.Semantics):
         task: FamilyTask,
         today: date | None = None,
         on_open=None,
+        on_complete=None,
         *args,
         **kwargs,
     ):
@@ -80,19 +92,44 @@ class FamilyTaskRow(ft.Semantics):
             weight=ft.FontWeight.W_600 if overdue else ft.FontWeight.W_400,
             visible=bool(deadline),
         )
-        metadata = [self.assignee_text]
+        completion = family_completion_text(task)
+        self.completion_text = ft.Text(
+            completion,
+            size=11,
+            color=MINT_GREEN,
+            visible=bool(completion),
+        )
+        metadata = [self.completion_text] if completion else [self.assignee_text]
         self.assigned_by_text = ft.Text(
             f"Tilldelad av {task.assigned_by}",
             size=11,
             color=TEXT_MUTED,
             visible=task.assigned_by != task.created_by,
         )
-        if self.assigned_by_text.visible:
+        if not completion and self.assigned_by_text.visible:
             metadata.append(self.assigned_by_text)
-        if deadline:
+        if not completion and deadline:
             metadata.append(self.deadline_text)
+        self.complete_button = ft.IconButton(
+            icon=ft.Icons.RADIO_BUTTON_UNCHECKED,
+            icon_color=TEXT_MUTED,
+            icon_size=20,
+            width=32,
+            height=32,
+            padding=0,
+            tooltip=f"Markera {task.title} som klar",
+            on_click=(lambda _event: on_complete(task)) if on_complete else None,
+            visible=on_complete is not None,
+        )
+        self.complete_semantics = ft.Semantics(
+            label=f"Markera {task.title} som klar",
+            button=True,
+            exclude_semantics=True,
+            content=self.complete_button,
+            visible=on_complete is not None,
+        )
         row_style = glass_card_style(padding=8, border_radius=10, border_color="#1C3328")
-        visual_row = ft.Container(
+        task_details = ft.Container(
             content=ft.Row(
                 controls=[
                     ft.Container(
@@ -104,28 +141,52 @@ class FamilyTaskRow(ft.Semantics):
                         expand=True,
                     ),
                     ft.Icon(
-                        ft.Icons.WARNING_AMBER_ROUNDED if overdue else ft.Icons.CHEVRON_RIGHT_ROUNDED,
-                        color=OVERDUE_COLOR if overdue else TEXT_MUTED,
+                        (
+                            ft.Icons.CHECK_CIRCLE_ROUNDED
+                            if completion
+                            else ft.Icons.WARNING_AMBER_ROUNDED
+                            if overdue
+                            else ft.Icons.CHEVRON_RIGHT_ROUNDED
+                        ),
+                        color=MINT_GREEN if completion else OVERDUE_COLOR if overdue else TEXT_MUTED,
                         size=18,
                     ),
                 ],
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
             ),
-            **row_style,
+            expand=True,
             on_click=(lambda _event: on_open(task)) if on_open else None,
-            **kwargs,
         )
         semantic_value = f"Ansvarig: {task.assignee}"
-        if deadline:
+        if completion:
+            semantic_value = completion
+        elif deadline:
             semantic_value += f". {deadline}"
+        self.details = (
+            ft.Semantics(
+                content=task_details,
+                label=f"Redigera {task.title}",
+                value=semantic_value,
+                button=True,
+                exclude_semantics=True,
+                expand=True,
+            )
+            if on_open
+            else task_details
+        )
+        controls = [self.details]
+        if on_complete is not None:
+            controls.insert(0, self.complete_semantics)
         super().__init__(
             *args,
-            content=visual_row,
-            label=f"Redigera {task.title}" if on_open else task.title,
-            value=semantic_value,
-            button=True if on_open else None,
-            exclude_semantics=True,
+            content=ft.Row(
+                controls=controls,
+                spacing=4,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+            **row_style,
+            **kwargs,
         )
 
 
@@ -268,7 +329,12 @@ class FamilyCurrentView(ft.Container):
             self.list_container.controls = [ft.Text(empty_text, color=TEXT_MUTED, size=13)]
         else:
             self.list_container.controls = [
-                FamilyTaskRow(task, on_open=self._open_edit) for task in tasks
+                FamilyTaskRow(
+                    task,
+                    on_open=self._open_edit,
+                    on_complete=self._start_completion,
+                )
+                for task in tasks
             ]
 
     def _open_create(self, _event=None):
@@ -285,6 +351,27 @@ class FamilyCurrentView(ft.Container):
                 self.page.show_dialog(self.editor)
         except (AttributeError, RuntimeError):
             pass
+
+    def _start_completion(self, task: FamilyTask):
+        if self.page is not None:
+            self.page.run_task(self._complete_task, task)
+
+    async def _complete_task(self, task: FamilyTask):
+        try:
+            saved = await self.repository.complete_task(task)
+            self._upsert_task(saved)
+            await self.repository.cache_bootstrap(self.bootstrap)
+            self._set_status("Uppgiften slutförd", MINT_GREEN)
+        except FamilyVersionConflict as conflict:
+            self._upsert_task(conflict.latest_task)
+            self._set_status(
+                f"Uppgiften ändrades av {conflict.latest_task.updated_by}",
+                OVERDUE_COLOR,
+            )
+        except (ValueError, PermissionError, LookupError, TimeoutError) as error:
+            self._set_status(str(error), OVERDUE_COLOR)
+        except Exception:
+            self._set_status("Kunde inte slutföra uppgiften. Försök igen.", OVERDUE_COLOR)
 
     async def _save_editor(
         self,

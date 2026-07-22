@@ -35,9 +35,15 @@ API-kontraktet består av:
 - `listHistory`: returnerar endast uppgifter slutförda under de senaste 14 dagarna.
 - `createTask`: skapar en Aktuell-uppgift idempotent med klientens stabila ID.
 - `updateTask`: ändrar titel, ansvarig eller deadline med versionskontroll.
+- `changeStatus`: flyttar mellan Aktuell och Senare eller slutför uppgiften som Klar.
+  Vid slutförande sätts `Slutförd av` från den autentiserade enheten och
+  `Slutförd` från serverns klocka.
+- `deleteTask`: sätter status Raderad utan att ta bort Sheet-raden.
 
 Historik och raderade uppgifter ingår aldrig i `bootstrap`. Ogiltiga manuella rader
 isoleras som `invalidRows` och blockerar inte övriga giltiga rader.
+`listHistory` filtrerar exakt 14 dygn på `Slutförd`, sorterar nyast först och
+rensar aldrig äldre Sheet-rader.
 
 Alla svar använder fälten `ok`, `data`, `error`, `server_time` och `api_version`.
 

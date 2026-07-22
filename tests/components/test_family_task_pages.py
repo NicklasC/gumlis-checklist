@@ -3,7 +3,13 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
-from src.models.family import FamilyFavorite, FamilyTask, FamilyTaskDraft, FamilyTaskPage
+from src.models.family import (
+    FamilyFavorite,
+    FamilyTask,
+    FamilyTaskDraft,
+    FamilyTaskPage,
+    FamilyTaskStatus,
+)
 from src.views.family_favorites_view import FamilyFavoritesView
 from src.views.family_task_page import FamilyHistoryView, FamilyLaterView
 
@@ -91,3 +97,80 @@ class FamilyTaskPageTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(view.task_page.tasks[0].title, "Ny titel")
         self.assertEqual(view.status_text.value, "Ändringar sparade")
+
+    async def test_later_page_completion_removes_task(self):
+        view, repository = self.page()
+        task = FamilyTask.model_validate(
+            {
+                "id": "later-1",
+                "title": "Töm soporna",
+                "status": "Senare",
+                "assignee": "Alla",
+                "assigned_by": "Nicklas",
+                "assigned_at": "2026-07-20T10:00:00+00:00",
+                "created_by": "Nicklas",
+                "created_at": "2026-07-20T10:00:00+00:00",
+                "deadline": None,
+                "updated_by": "Nicklas",
+                "updated_at": "2026-07-20T10:00:00+00:00",
+                "completed_by": None,
+                "completed_at": None,
+                "version": 1,
+            }
+        )
+        completed = task.model_copy(
+            update={
+                "status": FamilyTaskStatus.COMPLETED,
+                "completed_by": "Nicklas",
+                "completed_at": datetime(2026, 7, 20, 12, 0, tzinfo=timezone.utc),
+                "version": 2,
+            }
+        )
+        view.task_page = FamilyTaskPage(
+            tasks=[task],
+            invalid_rows=[],
+            server_time=datetime(2026, 7, 20, 12, 0, tzinfo=timezone.utc),
+        )
+        repository.complete_task = AsyncMock(return_value=completed)
+
+        await view._complete_task(task)
+
+        repository.complete_task.assert_awaited_once_with(task)
+        self.assertEqual(view.task_page.tasks, [])
+        self.assertEqual(view.status_text.value, "Uppgiften slutförd")
+
+    async def test_history_sorts_newest_first_and_shows_completion_audit(self):
+        view, _ = self.page("Familj – Historik")
+
+        def completed(task_id, completed_at, completed_by):
+            return FamilyTask.model_validate(
+                {
+                    "id": task_id,
+                    "title": task_id,
+                    "status": "Klar",
+                    "assignee": "Alla",
+                    "assigned_by": "Nicklas",
+                    "assigned_at": "2026-07-20T10:00:00+00:00",
+                    "created_by": "Nicklas",
+                    "created_at": "2026-07-20T10:00:00+00:00",
+                    "deadline": None,
+                    "updated_by": completed_by,
+                    "updated_at": completed_at,
+                    "completed_by": completed_by,
+                    "completed_at": completed_at,
+                    "version": 2,
+                }
+            )
+
+        older = completed("Äldre", "2026-07-20T11:00:00+00:00", "Ida")
+        newer = completed("Nyare", "2026-07-20T12:00:00+00:00", "Thor")
+        view.task_page = FamilyTaskPage(
+            tasks=[older, newer],
+            invalid_rows=[],
+            server_time=datetime(2026, 7, 20, 12, 0, tzinfo=timezone.utc),
+        )
+
+        self.assertEqual([task.id for task in view._visible_tasks()], ["Nyare", "Äldre"])
+        view._render_tasks()
+        self.assertIn("Slutförd av Thor", view.list_container.controls[0].completion_text.value)
+        self.assertIsNone(view.editor)

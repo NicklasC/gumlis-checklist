@@ -191,6 +191,13 @@ class FamilyRepository:
             raise ValueError("Ogiltig statusändring")
         return await self._status_mutation("changeStatus", task, status=status)
 
+    async def complete_task(self, task: FamilyTask) -> FamilyTask:
+        return await self._status_mutation(
+            "changeStatus",
+            task,
+            status=FamilyTaskStatus.COMPLETED,
+        )
+
     async def delete_task(self, task: FamilyTask) -> FamilyTask:
         return await self._status_mutation("deleteTask", task)
 

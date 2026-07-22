@@ -10,7 +10,12 @@ from src.models.family import (
     FamilyTaskStatus,
 )
 from src.repositories.family_repository import FamilyVersionConflict
-from src.views.family_current_view import FamilyCurrentView, FamilyTaskRow, family_deadline_text
+from src.views.family_current_view import (
+    FamilyCurrentView,
+    FamilyTaskRow,
+    family_completion_text,
+    family_deadline_text,
+)
 
 
 def make_task(
@@ -83,6 +88,40 @@ class FamilyCurrentViewTests(unittest.TestCase):
         )
         self.assertTrue(row.assigned_by_text.visible)
         self.assertEqual(row.assigned_by_text.value, "Tilldelad av Ida")
+
+    def test_history_row_shows_actual_completer_and_never_overdue(self):
+        completed_at = datetime(2026, 7, 20, 19, 15, tzinfo=timezone.utc)
+        task = FamilyTask(
+            id="completed",
+            title="Töm soporna",
+            status=FamilyTaskStatus.COMPLETED,
+            assignee="Thor",
+            assigned_by="Nicklas",
+            assigned_at=completed_at,
+            created_by="Nicklas",
+            created_at=completed_at,
+            deadline=date(2026, 7, 18),
+            updated_by="Ida",
+            updated_at=completed_at,
+            completed_by="Ida",
+            completed_at=completed_at,
+            version=2,
+        )
+        row = FamilyTaskRow(task, today=date(2026, 7, 22))
+
+        self.assertEqual(family_completion_text(task), row.completion_text.value)
+        self.assertIn("Slutförd av Ida", row.completion_text.value)
+        self.assertFalse(row.deadline_text.visible)
+
+    def test_active_row_exposes_direct_completion_action(self):
+        callback = MagicMock()
+        task = make_task("complete", "Töm soporna")
+        row = FamilyTaskRow(task, on_complete=callback)
+
+        row.complete_button.on_click(None)
+
+        callback.assert_called_once_with(task)
+        self.assertEqual(row.complete_button.tooltip, "Markera Töm soporna som klar")
 
     def test_all_and_mine_filters_sort_and_count_tasks(self):
         view = FamilyCurrentView(repository=None, member="Nicklas")
@@ -174,3 +213,24 @@ class FamilyCurrentMutationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(view.bootstrap.tasks[0].title, "Idas ändring")
         self.assertIs(view.editor.task, latest)
         self.assertIn("ändrades av Ida", view.editor.error_text.value)
+
+    async def test_completion_removes_task_updates_cache_and_shows_confirmation(self):
+        task = make_task("complete", "Töm soporna")
+        completed = task.model_copy(
+            update={
+                "status": FamilyTaskStatus.COMPLETED,
+                "completed_by": "Nicklas",
+                "completed_at": datetime(2026, 7, 20, 12, 0, tzinfo=timezone.utc),
+                "version": 2,
+            }
+        )
+        view, repository = self.make_view()
+        view._upsert_task(task)
+        repository.complete_task = AsyncMock(return_value=completed)
+
+        await view._complete_task(task)
+
+        repository.complete_task.assert_awaited_once_with(task)
+        repository.cache_bootstrap.assert_awaited_once()
+        self.assertEqual(view.bootstrap.tasks, [])
+        self.assertEqual(view.status_text.value, "Uppgiften slutförd")

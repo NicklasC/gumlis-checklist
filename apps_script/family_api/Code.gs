@@ -224,9 +224,13 @@ function listHistoryData_() {
   const parsed = parseFamilyRows_(rows);
   const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
   return {
-    tasks: parsed.tasks.filter(function (task) {
-      return task.status === "Klar" && task.completed_at && Date.parse(task.completed_at) >= cutoff;
-    }),
+    tasks: parsed.tasks
+      .filter(function (task) {
+        return task.status === "Klar" && task.completed_at && Date.parse(task.completed_at) >= cutoff;
+      })
+      .sort(function (left, right) {
+        return Date.parse(right.completed_at) - Date.parse(left.completed_at);
+      }),
     invalidRows: parsed.invalidRows.filter(function (issue) {
       return issue.sheet === TASKS_SHEET_NAME;
     }),
@@ -307,11 +311,16 @@ function updateTask_(request, member) {
 }
 
 function changeStatus_(request, member) {
-  const input = statusMutationInput_(request, ["Aktuell", "Senare"]);
+  const input = statusMutationInput_(request, ["Aktuell", "Senare", "Klar"]);
   return mutateTaskStatus_(input, member, function (task, now) {
     task.status = input.status;
     task.updated_by = member;
     task.updated_at = now;
+    if (input.status === "Klar") {
+      task.completed_by = member;
+      task.completed_at = now;
+      return;
+    }
     applyImmediateActivation_(task, now);
   });
 }
