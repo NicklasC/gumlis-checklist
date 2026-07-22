@@ -65,7 +65,7 @@ Skrivoperationer och skapande från Snabblistan hör till kontrollpunkt 4 och 7.
 
 Kontrollpunkt 4 är publicerad och produktionsverifierad 2026-07-22.
 
-## 5. Senare och statuslivscykel – lokalt godkänd
+## 5. Senare och statuslivscykel – Godkänd
 
 Flytt, radering och automatisk aktivering sju dagar före deadline.
 
@@ -77,9 +77,18 @@ Flytt, radering och automatisk aktivering sju dagar före deadline.
 - [x] Samma automatregel körs före bootstrap och direkt efter redigering/statusbyte.
 - [x] Repository-, komponent-, Apps Script- och GUI-tester täcker livscykeln.
 - [x] Full regression: 386/386 tester godkända.
+- [x] Produktionsprov verifierade flytt till Senare, radering med bekräftelse och
+      bevarad Sheet-rad med status Raderad, rätt ändrare och ökande version.
+- [x] Sjudagarsautomatiken verifierades live genom att sätta deadline 2026-07-29
+      på en Senare-uppgift; nästa bootstrap flyttade den till Aktuell och visade
+      Automatik som senaste ändrare.
+- [x] Båda produktionsprovens rader rensades efter verifieringen; endast rubrikraden
+      återstår i Uppgifter.
+- [x] Apps Script version 9 använder samma produktionsadress och implementerings-id
+      som tidigare.
+- [x] GitHub Pages commit `bf751e0`, build `c13d41c5cb27621f`, är verifierad live.
 
-Kontrollpunkten är färdig lokalt men ännu inte publicerad till Apps Script eller
-GitHub Pages.
+Kontrollpunkt 5 är publicerad och produktionsverifierad 2026-07-22.
 
 ## 6. Slutförande och historik – Väntar
 
