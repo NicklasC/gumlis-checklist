@@ -67,6 +67,21 @@ class FamilyAppsScriptTests(unittest.TestCase):
         self.assertIn("version: existing.task.version + 1", self.code)
         self.assertNotIn("request.member", self.code)
 
+    def test_status_lifecycle_is_versioned_and_server_audited(self):
+        self.assertIn('case "changeStatus"', self.code)
+        self.assertIn('case "deleteTask"', self.code)
+        self.assertIn("function mutateTaskStatus_", self.code)
+        self.assertIn('task.status = "Raderad"', self.code)
+        self.assertIn("version: existing.task.version + 1", self.code)
+        self.assertIn("task.updated_by = member", self.code)
+
+    def test_due_later_tasks_are_activated_before_bootstrap(self):
+        bootstrap = self.code[self.code.index("function bootstrapData_") : self.code.index("function listLaterData_")]
+        self.assertIn("activateDueLaterTasks_();", bootstrap)
+        self.assertIn("function deadlineWithinSevenDays_", self.code)
+        self.assertIn('task.updated_by = "Automatik"', self.code)
+        self.assertIn('task.status = "Aktuell"', self.code)
+
     def test_assignment_audit_changes_only_when_assignee_changes(self):
         self.assertIn("if (input.assignee !== existing.task.assignee)", self.code)
         self.assertIn("updated.assigned_by = member", self.code)

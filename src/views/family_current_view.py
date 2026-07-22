@@ -13,7 +13,7 @@ from src.core.theme import (
     border_all,
     glass_card_style,
 )
-from src.models.family import FamilyBootstrap, FamilyTask, FamilyTaskDraft
+from src.models.family import FamilyBootstrap, FamilyTask, FamilyTaskDraft, FamilyTaskStatus
 from src.repositories.family_repository import FamilyVersionConflict
 from src.views.family_task_editor import FamilyTaskEditor
 
@@ -162,7 +162,7 @@ class FamilyCurrentView(ft.Container):
             exclude_semantics=True,
             content=self._create_icon_button,
         )
-        self.editor = FamilyTaskEditor(self._save_editor)
+        self.editor = FamilyTaskEditor(self._save_editor, self._task_action)
         self._rebuild_filter_buttons()
 
         super().__init__(
@@ -323,6 +323,35 @@ class FamilyCurrentView(ft.Container):
         if task.status.value == "Aktuell":
             tasks.append(task)
         self._set_bootstrap(self.bootstrap.model_copy(update={"tasks": tasks}))
+
+    async def _task_action(
+        self,
+        task: FamilyTask,
+        action: FamilyTaskStatus,
+        editor: FamilyTaskEditor,
+    ):
+        try:
+            saved = (
+                await self.repository.delete_task(task)
+                if action == FamilyTaskStatus.DELETED
+                else await self.repository.change_status(task, action)
+            )
+            self._upsert_task(saved)
+            await self.repository.cache_bootstrap(self.bootstrap)
+            editor.close()
+            self._set_status(
+                "Uppgiften raderad"
+                if action == FamilyTaskStatus.DELETED
+                else "Uppgiften flyttad",
+                MINT_GREEN,
+            )
+        except FamilyVersionConflict as conflict:
+            self._upsert_task(conflict.latest_task)
+            editor.load_conflict(conflict.latest_task)
+        except (ValueError, PermissionError, LookupError, TimeoutError) as error:
+            editor.set_error(str(error))
+        except Exception:
+            editor.set_error("Kunde inte ändra uppgiften. Försök igen.")
 
     def _set_status(self, value: str, color: str):
         self.status_text.value = value

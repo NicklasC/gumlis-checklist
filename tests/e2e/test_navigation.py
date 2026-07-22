@@ -210,6 +210,7 @@ class NavigationTests(BrowserTestCase):
     def test_family_task_can_be_created_and_edited(self):
         self.page.evaluate(
             """() => {
+                let task = null;
                 window.gumliFamilyBridge.forward = (message, worker) => {
                     const action = message.payload?.action;
                     const input = message.payload?.task ?? {};
@@ -219,29 +220,42 @@ class NavigationTests(BrowserTestCase):
                         data = {member: 'Nicklas'};
                     } else if (action === 'bootstrap') {
                         data = {
-                            tasks: [],
+                            tasks: task?.status === 'Aktuell' ? [task] : [],
                             members: [{name: 'Nicklas', active: true, sort_order: 1}],
                             favorites: [],
                             invalidRows: []
                         };
                     } else if (action === 'createTask' || action === 'updateTask') {
+                        task = {
+                            id: input.id,
+                            title: input.title,
+                            status: 'Aktuell',
+                            assignee: input.assignee,
+                            assigned_by: 'Nicklas',
+                            assigned_at: timestamp,
+                            created_by: 'Nicklas',
+                            created_at: timestamp,
+                            deadline: input.deadline,
+                            updated_by: 'Nicklas',
+                            updated_at: timestamp,
+                            completed_by: null,
+                            completed_at: null,
+                            version: action === 'createTask' ? 1 : input.version + 1
+                        };
+                        data = {task};
+                    } else if (action === 'changeStatus' || action === 'deleteTask') {
+                        task = {
+                            ...task,
+                            status: action === 'deleteTask' ? 'Raderad' : input.status,
+                            updated_by: 'Nicklas',
+                            updated_at: timestamp,
+                            version: input.version + 1
+                        };
+                        data = {task};
+                    } else if (action === 'listLater') {
                         data = {
-                            task: {
-                                id: input.id,
-                                title: input.title,
-                                status: 'Aktuell',
-                                assignee: input.assignee,
-                                assigned_by: 'Nicklas',
-                                assigned_at: timestamp,
-                                created_by: 'Nicklas',
-                                created_at: timestamp,
-                                deadline: input.deadline,
-                                updated_by: 'Nicklas',
-                                updated_at: timestamp,
-                                completed_by: null,
-                                completed_at: null,
-                                version: action === 'createTask' ? 1 : input.version + 1
-                            }
+                            tasks: task?.status === 'Senare' ? [task] : [],
+                            invalidRows: []
                         };
                     } else {
                         data = {tasks: [], invalidRows: []};
@@ -307,6 +321,30 @@ class NavigationTests(BrowserTestCase):
                 has_text="GUI-familjeuppgift"
             ).count(),
             0,
+        )
+
+        edited_task = self.page.locator('flt-semantics[role="button"]').filter(
+            has_text="Redigerad GUI-uppgift"
+        )
+        edited_task.click()
+        self.page.get_by_role("button", name="Flytta till Senare", exact=True).click()
+        self.page.get_by_text("Uppgiften flyttad", exact=True).wait_for(
+            state="visible", timeout=10_000
+        )
+        self.select_tab("Senare")
+        later_task = self.page.locator('flt-semantics[role="button"]').filter(
+            has_text="Redigerad GUI-uppgift"
+        )
+        later_task.wait_for(state="visible", timeout=10_000)
+        later_task.click()
+        self.page.get_by_role("button", name="Radera", exact=True).click()
+        self.page.get_by_text("Radera familjeuppgift", exact=True).wait_for(state="visible")
+        self.page.get_by_role("button", name="Radera uppgift", exact=True).click()
+        self.page.get_by_text("Uppgiften raderad", exact=True).wait_for(
+            state="visible", timeout=10_000
+        )
+        self.page.get_by_text("Inga familjeuppgifter i Senare", exact=True).wait_for(
+            state="visible", timeout=10_000
         )
 
     def test_boot_has_no_console_errors(self):

@@ -15,6 +15,7 @@ from src.models.family import (
     FamilyTask,
     FamilyTaskDraft,
     FamilyTaskPage,
+    FamilyTaskStatus,
 )
 
 
@@ -177,6 +178,37 @@ class FamilyRepository:
                     "assignee": draft.assignee,
                     "deadline": draft.deadline.isoformat() if draft.deadline else None,
                 },
+            }
+        )
+        return self._mutation_task(response)
+
+    async def change_status(
+        self,
+        task: FamilyTask,
+        status: FamilyTaskStatus,
+    ) -> FamilyTask:
+        if status not in (FamilyTaskStatus.CURRENT, FamilyTaskStatus.LATER):
+            raise ValueError("Ogiltig statusändring")
+        return await self._status_mutation("changeStatus", task, status=status)
+
+    async def delete_task(self, task: FamilyTask) -> FamilyTask:
+        return await self._status_mutation("deleteTask", task)
+
+    async def _status_mutation(
+        self,
+        action: str,
+        task: FamilyTask,
+        status: FamilyTaskStatus | None = None,
+    ) -> FamilyTask:
+        connection = await self._require_connection()
+        payload = {"id": task.id, "version": task.version}
+        if status is not None:
+            payload["status"] = status.value
+        response = await self._transport(
+            {
+                "action": action,
+                "deviceToken": connection.device_token,
+                "task": payload,
             }
         )
         return self._mutation_task(response)

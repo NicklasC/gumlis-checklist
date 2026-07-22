@@ -65,9 +65,21 @@ Skrivoperationer och skapande från Snabblistan hör till kontrollpunkt 4 och 7.
 
 Kontrollpunkt 4 är publicerad och produktionsverifierad 2026-07-22.
 
-## 5. Senare och statuslivscykel – Väntar
+## 5. Senare och statuslivscykel – lokalt godkänd
 
 Flytt, radering och automatisk aktivering sju dagar före deadline.
+
+- [x] Versionsskyddad flytt mellan Aktuell och Senare.
+- [x] Radering sätter status Raderad och behåller raden i Sheet.
+- [x] Radering kräver en separat bekräftelse i appen.
+- [x] Senare med deadline inom sju kalenderdagar, inklusive försenade uppgifter,
+      flyttas till Aktuell med Automatik som senaste ändrare.
+- [x] Samma automatregel körs före bootstrap och direkt efter redigering/statusbyte.
+- [x] Repository-, komponent-, Apps Script- och GUI-tester täcker livscykeln.
+- [x] Full regression: 386/386 tester godkända.
+
+Kontrollpunkten är färdig lokalt men ännu inte publicerad till Apps Script eller
+GitHub Pages.
 
 ## 6. Slutförande och historik – Väntar
 

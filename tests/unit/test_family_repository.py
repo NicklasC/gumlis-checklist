@@ -3,7 +3,7 @@ import unittest
 from datetime import date
 from unittest.mock import AsyncMock
 
-from src.models.family import FamilyTask, FamilyTaskDraft
+from src.models.family import FamilyTask, FamilyTaskDraft, FamilyTaskStatus
 from src.repositories.family_repository import FamilyRepository, FamilyVersionConflict
 
 
@@ -332,6 +332,62 @@ class FamilyRepositoryTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(caught.exception.latest_task.title, "Redan ändrad")
         self.assertEqual(caught.exception.latest_task.updated_by, "Ida")
+
+    async def test_change_status_sends_only_id_version_and_target_status(self):
+        token = "n" * 48
+        stored = json.dumps({"deviceToken": token, "member": "Nicklas"})
+        response_task = mutation_task(status="Senare", version=2)
+        repo, _, requests = self.make_repository(
+            {"ok": True, "data": {"task": response_task}},
+            stored,
+        )
+
+        changed = await repo.change_status(
+            FamilyTask.model_validate(mutation_task()),
+            FamilyTaskStatus.LATER,
+        )
+
+        self.assertEqual(changed.status, FamilyTaskStatus.LATER)
+        self.assertEqual(
+            requests[0],
+            {
+                "action": "changeStatus",
+                "deviceToken": token,
+                "task": {"id": "family-1", "version": 1, "status": "Senare"},
+            },
+        )
+
+    async def test_delete_task_uses_separate_authenticated_action(self):
+        token = "n" * 48
+        stored = json.dumps({"deviceToken": token, "member": "Nicklas"})
+        response_task = mutation_task(status="Raderad", version=2)
+        repo, _, requests = self.make_repository(
+            {"ok": True, "data": {"task": response_task}},
+            stored,
+        )
+
+        deleted = await repo.delete_task(FamilyTask.model_validate(mutation_task()))
+
+        self.assertEqual(deleted.status, FamilyTaskStatus.DELETED)
+        self.assertEqual(
+            requests[0],
+            {
+                "action": "deleteTask",
+                "deviceToken": token,
+                "task": {"id": "family-1", "version": 1},
+            },
+        )
+
+    async def test_change_status_rejects_completed_target_locally(self):
+        repo, _, requests = self.make_repository({"ok": True})
+
+        with self.assertRaises(ValueError):
+            await repo.change_status(
+                FamilyTask.model_validate(mutation_task()),
+                FamilyTaskStatus.COMPLETED,
+            )
+
+        self.assertEqual(requests, [])
 
     async def test_disconnect_removes_persisted_connection(self):
         repo, storage, _ = self.make_repository({"ok": True, "member": "Thor"}, "saved")

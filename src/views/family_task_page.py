@@ -3,7 +3,7 @@ from __future__ import annotations
 import flet as ft
 
 from src.core.theme import MINT_GREEN, TEXT_MUTED, TEXT_SECONDARY
-from src.models.family import FamilyTaskPage
+from src.models.family import FamilyTaskPage, FamilyTaskStatus
 from src.repositories.family_repository import FamilyVersionConflict
 from src.views.family_current_view import FamilyTaskRow
 from src.views.family_task_editor import FamilyTaskEditor
@@ -26,7 +26,11 @@ class FamilyTaskPageView(ft.Container):
         self.member_text = ft.Text(f"Ansluten som {member}", size=11, color=MINT_GREEN)
         self.filter_row = ft.Row(spacing=6, tight=True)
         self.list_container = ft.Column(scroll=ft.ScrollMode.AUTO, spacing=6, expand=True)
-        self.editor = FamilyTaskEditor(self._save_editor) if action == "listLater" else None
+        self.editor = (
+            FamilyTaskEditor(self._save_editor, self._task_action)
+            if action == "listLater"
+            else None
+        )
         self._rebuild_filter_buttons()
 
         super().__init__(
@@ -164,6 +168,29 @@ class FamilyTaskPageView(ft.Container):
         self._rebuild_filter_buttons()
         self._render_tasks()
         self._safe_update()
+
+    async def _task_action(self, task, action, editor):
+        try:
+            saved = (
+                await self.repository.delete_task(task)
+                if action == FamilyTaskStatus.DELETED
+                else await self.repository.change_status(task, action)
+            )
+            self._upsert_task(saved)
+            editor.close()
+            self._set_status(
+                "Uppgiften raderad"
+                if action == FamilyTaskStatus.DELETED
+                else "Uppgiften flyttad",
+                MINT_GREEN,
+            )
+        except FamilyVersionConflict as conflict:
+            self._upsert_task(conflict.latest_task)
+            editor.load_conflict(conflict.latest_task)
+        except (ValueError, PermissionError, LookupError, TimeoutError) as error:
+            editor.set_error(str(error))
+        except Exception:
+            editor.set_error("Kunde inte ändra uppgiften. Försök igen.")
 
     def _set_status(self, value: str, color: str):
         self.status_text.value = value

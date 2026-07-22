@@ -7,14 +7,15 @@ from datetime import date
 import flet as ft
 
 from src.core.theme import MINT_GREEN, SURFACE_COLOR, TEXT_MUTED, TEXT_PRIMARY
-from src.models.family import FAMILY_ASSIGNEES, FamilyTask, FamilyTaskDraft
+from src.models.family import FAMILY_ASSIGNEES, FamilyTask, FamilyTaskDraft, FamilyTaskStatus
 
 
 class FamilyTaskEditor(ft.AlertDialog):
     """Shared create/edit dialog for active family tasks."""
 
-    def __init__(self, on_submit):
+    def __init__(self, on_submit, on_action=None):
         self.on_submit = on_submit
+        self.on_action = on_action
         self.task: FamilyTask | None = None
         self.pending_create_id: str | None = str(uuid.uuid4())
         self.heading = ft.Text("Ny familjeuppgift", color=TEXT_PRIMARY)
@@ -53,6 +54,16 @@ class FamilyTaskEditor(ft.AlertDialog):
         self.audit_text = ft.Text("", size=11, color=TEXT_MUTED, visible=False)
         self.error_text = ft.Text("", size=12, color="#F87171", visible=False)
         self.cancel_button = ft.TextButton(content=ft.Text("Avbryt"), on_click=self._cancel)
+        self.move_button = ft.TextButton(
+            content=ft.Text("Flytta till Senare"),
+            on_click=self._move,
+            visible=False,
+        )
+        self.delete_button = ft.TextButton(
+            content=ft.Text("Radera", color="#F87171"),
+            on_click=self._request_delete,
+            visible=False,
+        )
         self.save_button = ft.FilledButton(
             content=ft.Text("Skapa uppgift"),
             on_click=self._submit,
@@ -74,7 +85,7 @@ class FamilyTaskEditor(ft.AlertDialog):
                 spacing=10,
                 tight=True,
             ),
-            actions=[self.cancel_button, self.save_button],
+            actions=[self.delete_button, self.move_button, self.cancel_button, self.save_button],
             actions_alignment=ft.MainAxisAlignment.END,
             bgcolor=SURFACE_COLOR,
             scrollable=True,
@@ -90,6 +101,14 @@ class FamilyTaskEditor(ft.AlertDialog):
         self.deadline_field.value = task.deadline.isoformat() if task and task.deadline else ""
         self.audit_text.value = self._audit_summary(task) if task else ""
         self.audit_text.visible = task is not None
+        self.move_button.visible = task is not None and self.on_action is not None
+        self.delete_button.visible = task is not None and self.on_action is not None
+        if task is not None:
+            self.move_button.content.value = (
+                "Flytta till Aktuell"
+                if task.status == FamilyTaskStatus.LATER
+                else "Flytta till Senare"
+            )
         self.set_error("")
         self.set_busy(False)
 
@@ -136,6 +155,8 @@ class FamilyTaskEditor(ft.AlertDialog):
     def set_busy(self, busy: bool) -> None:
         self.save_button.disabled = busy
         self.cancel_button.disabled = busy
+        self.move_button.disabled = busy
+        self.delete_button.disabled = busy
         if busy:
             self.save_button.content.value = "Sparar …"
         else:
@@ -168,6 +189,52 @@ class FamilyTaskEditor(ft.AlertDialog):
 
     def _cancel(self, _event=None) -> None:
         self.close()
+
+    async def _move(self, _event=None) -> None:
+        if self.task is None:
+            return
+        target = (
+            FamilyTaskStatus.CURRENT
+            if self.task.status == FamilyTaskStatus.LATER
+            else FamilyTaskStatus.LATER
+        )
+        await self._run_action(target)
+
+    def _request_delete(self, _event=None) -> None:
+        if self.page is None or self.task is None:
+            return
+        dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Radera familjeuppgift"),
+            content=ft.Text("Uppgiften tas bort från appen men raden sparas i familjearket."),
+            actions=[
+                ft.TextButton("Avbryt", on_click=lambda _event: self.page.pop_dialog()),
+                ft.TextButton(
+                    content=ft.Text("Radera uppgift", color="#F87171"),
+                    on_click=self._confirm_delete,
+                ),
+            ],
+        )
+        self.page.show_dialog(dialog)
+
+    async def _confirm_delete(self, _event=None) -> None:
+        if self.page is not None:
+            self.page.pop_dialog()
+        await self._run_action(FamilyTaskStatus.DELETED)
+
+    async def _run_action(self, action: FamilyTaskStatus) -> None:
+        if self.task is None or self.on_action is None:
+            return
+        self.set_error("")
+        self.set_busy(True)
+        try:
+            result = self.on_action(self.task, action, self)
+            if inspect.isawaitable(result):
+                await result
+        except Exception:
+            self.set_error("Kunde inte ändra uppgiften. Försök igen.")
+        finally:
+            self.set_busy(False)
 
     def _clear_deadline(self, _event=None) -> None:
         self.deadline_field.value = ""

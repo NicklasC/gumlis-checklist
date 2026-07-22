@@ -65,6 +65,10 @@ function handleRequest(request) {
         return successResponse_(createTask_(request, member), apiVersion);
       case "updateTask":
         return successResponse_(updateTask_(request, member), apiVersion);
+      case "changeStatus":
+        return successResponse_(changeStatus_(request, member), apiVersion);
+      case "deleteTask":
+        return successResponse_(deleteTask_(request, member), apiVersion);
       case "probeWrite":
         return successResponse_(probeWrite_(request, member), apiVersion);
       case "probeRead":
@@ -185,6 +189,7 @@ function writeValues_(range, values) {
 }
 
 function bootstrapData_() {
+  activateDueLaterTasks_();
   const rows = readFamilyRanges_();
   const parsed = parseFamilyRows_(rows);
   return {
@@ -294,10 +299,105 @@ function updateTask_(request, member) {
       updated.assigned_by = member;
       updated.assigned_at = now;
     }
+    applyImmediateActivation_(updated, now);
     const range = "'" + TASKS_SHEET_NAME + "'!A" + existing.rowNumber + ":N" + existing.rowNumber;
     writeValues_(range, [taskToRow_(updated)]);
     return { task: updated };
   });
+}
+
+function changeStatus_(request, member) {
+  const input = statusMutationInput_(request, ["Aktuell", "Senare"]);
+  return mutateTaskStatus_(input, member, function (task, now) {
+    task.status = input.status;
+    task.updated_by = member;
+    task.updated_at = now;
+    applyImmediateActivation_(task, now);
+  });
+}
+
+function deleteTask_(request, member) {
+  const input = statusMutationInput_(request, null);
+  return mutateTaskStatus_(input, member, function (task, now) {
+    task.status = "Raderad";
+    task.updated_by = member;
+    task.updated_at = now;
+  });
+}
+
+function statusMutationInput_(request, allowedStatuses) {
+  const task = request?.task;
+  if (!task || Array.isArray(task) || typeof task !== "object") {
+    throw apiError_("INVALID_INPUT");
+  }
+  const input = {
+    id: boundedText_(task.id, 128),
+    version: positiveInteger_(task.version),
+  };
+  if (allowedStatuses) {
+    input.status = allowedValue_(task.status, allowedStatuses);
+  }
+  return input;
+}
+
+function mutateTaskStatus_(input, member, mutate) {
+  return withTaskLock_(function () {
+    const rows = readTaskRows_();
+    const existing = findTaskById_(rows, input.id);
+    if (!existing) throw apiError_("NOT_FOUND");
+    if (existing.task.version !== input.version) {
+      throw apiError_("VERSION_CONFLICT", { latestTask: existing.task });
+    }
+    if (!["Aktuell", "Senare"].includes(existing.task.status)) {
+      throw apiError_("INVALID_INPUT");
+    }
+    const now = new Date().toISOString();
+    const updated = Object.assign({}, existing.task, {
+      version: existing.task.version + 1,
+    });
+    mutate(updated, now);
+    const range = "'" + TASKS_SHEET_NAME + "'!A" + existing.rowNumber + ":N" + existing.rowNumber;
+    writeValues_(range, [taskToRow_(updated)]);
+    return { task: updated };
+  });
+}
+
+function activateDueLaterTasks_() {
+  withTaskLock_(function () {
+    const rows = readTaskRows_();
+    const now = new Date().toISOString();
+    rows.forEach(function (row, index) {
+      if ((row || []).every(function (value) {
+        return String(value || "").trim().toLowerCase() === "";
+      })) return;
+      let task;
+      try {
+        task = parseTaskRow_(row || []);
+      } catch (error) {
+        return;
+      }
+      if (!applyImmediateActivation_(task, now)) return;
+      task.version += 1;
+      const rowNumber = index + 2;
+      writeValues_("'" + TASKS_SHEET_NAME + "'!A" + rowNumber + ":N" + rowNumber, [taskToRow_(task)]);
+    });
+  });
+}
+
+function applyImmediateActivation_(task, now) {
+  if (task.status !== "Senare" || !task.deadline || !deadlineWithinSevenDays_(task.deadline)) {
+    return false;
+  }
+  task.status = "Aktuell";
+  task.updated_by = "Automatik";
+  task.updated_at = now;
+  return true;
+}
+
+function deadlineWithinSevenDays_(deadline) {
+  const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
+  const day = 24 * 60 * 60 * 1000;
+  return Date.parse(deadline + "T00:00:00Z") - Date.parse(today + "T00:00:00Z") <= 7 * day;
 }
 
 function taskMutationInput_(value, requireVersion) {

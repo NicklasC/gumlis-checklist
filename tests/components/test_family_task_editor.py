@@ -55,6 +55,30 @@ class FamilyTaskEditorTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Tilldelad av Ida", editor.audit_text.value)
         self.assertIn("Senast ändrad av Ida", editor.audit_text.value)
 
+    async def test_edit_actions_move_current_task_to_later(self):
+        callback = AsyncMock()
+        timestamp = datetime(2026, 7, 21, 8, 15, tzinfo=timezone.utc)
+        task = FamilyTask(
+            id="family-1",
+            title="Töm soporna",
+            status=FamilyTaskStatus.CURRENT,
+            assigned_by="Nicklas",
+            assigned_at=timestamp,
+            created_by="Nicklas",
+            created_at=timestamp,
+            updated_by="Nicklas",
+            updated_at=timestamp,
+            version=1,
+        )
+        editor = FamilyTaskEditor(AsyncMock(), callback)
+        editor.prepare(task)
+
+        await editor._move()
+
+        self.assertTrue(editor.move_button.visible)
+        self.assertTrue(editor.delete_button.visible)
+        callback.assert_awaited_once_with(task, FamilyTaskStatus.LATER, editor)
+
     async def test_invalid_deadline_blocks_submit_with_swedish_message(self):
         callback = AsyncMock()
         editor = FamilyTaskEditor(callback)
