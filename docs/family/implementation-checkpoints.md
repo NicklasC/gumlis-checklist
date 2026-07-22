@@ -90,7 +90,7 @@ Flytt, radering och automatisk aktivering sju dagar före deadline.
 
 Kontrollpunkt 5 är publicerad och produktionsverifierad 2026-07-22.
 
-## 6. Slutförande och historik – lokalt godkänd
+## 6. Slutförande och historik – Godkänd
 
 Faktisk utförare, serverstämplad sluttid och lat 14-dagars historik utan återställning.
 
@@ -108,11 +108,17 @@ Faktisk utförare, serverstämplad sluttid och lat 14-dagars historik utan åter
       saknar återställningsåtgärd.
 - [x] GUI-test verifierar skapa, direkt slutförande, tom Aktuell, Historikrad,
       utföraraudit och avsaknad av återställningsknapp.
-- [x] Lokal GitHub Pages-build `4d278d6183e2fba8` används av GUI-regressionen.
+- [x] Produktionsprov skapades och slutfördes via PWA:n. Sheet-raden verifierades
+      med status Klar, Slutförd av Nicklas, serverstämplad sluttid, Senast ändrad
+      av Nicklas och Version 2.
+- [x] Samma produktionsprov visades i Historik med faktisk utförare och utan
+      slutförande- eller återställningsåtgärd; testraden rensades därefter.
+- [x] Apps Script version 10 använder samma produktionsadress och implementerings-id
+      som tidigare.
+- [x] GitHub Pages commit `eb228ba`, build `4d278d6183e2fba8`, är verifierad live.
 - [x] Full regression: 394/394 tester godkända.
 
-Kontrollpunkten är färdig lokalt men ännu inte publicerad till Apps Script eller
-GitHub Pages.
+Kontrollpunkt 6 är publicerad och produktionsverifierad 2026-07-22.
 
 ## 7. Snabblistan – Väntar
 
