@@ -113,6 +113,23 @@ class MainViewTests(unittest.TestCase):
         self.assertEqual(view.current_mode, WORK)
         self.assertIs(view.content_area.content, view.view_checklist)
 
+    def test_late_family_connection_does_not_replace_private_view(self):
+        late_view = MainView(
+            InMemoryRepository(),
+            family_repository_factory=MagicMock(return_value=MagicMock()),
+        )
+        late_view.content_area.update = MagicMock()
+        late_view._ensure_family_view().activate = MagicMock()
+        late_view._handle_mode_change(FAMILY_MODE)
+        late_view._handle_mode_change(PRIVATE)
+
+        late_view._handle_family_connected("Nicklas")
+
+        self.assertEqual(late_view.current_mode, PRIVATE)
+        self.assertEqual(late_view.family_member, "Nicklas")
+        self.assertIs(late_view.content_area.content, late_view.view_checklist)
+        self.assertIsNone(late_view.view_family_current)
+
     def test_connected_family_uses_separate_bottom_pages(self):
         repository = MagicMock()
         view = MainView(InMemoryRepository(), family_repository_factory=MagicMock(return_value=repository))

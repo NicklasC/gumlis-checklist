@@ -310,6 +310,11 @@ class MainView(ft.Container):
 
     def _handle_family_connected(self, member: str):
         self.family_member = member
+        # A resume/connect request may finish after the user has already left
+        # Familj. Keep the successful connection for the next visit, but never
+        # let the late response replace the currently selected Privat/Jobb view.
+        if self.current_mode != FAMILY_MODE:
+            return
         view = self._ensure_family_page(self.nav_bar.selected_index)
         self.content_area.content = view
         self.content_area.update()

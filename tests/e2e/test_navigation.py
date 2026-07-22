@@ -41,6 +41,52 @@ class NavigationTests(BrowserTestCase):
         self.set_mode("Privat")
         self.assertTrue(self.page.get_by_text("Allt klart på den privata listan!", exact=True).is_visible())
 
+    def test_late_family_connection_does_not_override_private_navigation(self):
+        self.page.evaluate(
+            """() => {
+                window.gumliFamilyBridge.forward = (message, worker) => {
+                    const action = message.payload?.action;
+                    const response = {
+                        ok: true,
+                        data: action === 'bootstrap'
+                            ? {
+                                tasks: [],
+                                members: [{name: 'Nicklas', active: true, sort_order: 1}],
+                                favorites: [],
+                                invalidRows: []
+                            }
+                            : {member: 'Nicklas'},
+                        error: null,
+                        server_time: '2026-07-22T12:00:00+00:00',
+                        api_version: 'family-test'
+                    };
+                    const delay = action === 'ping' ? 1_200 : 0;
+                    setTimeout(() => worker.postMessage({
+                        type: 'gumli-family-response',
+                        requestId: message.requestId,
+                        response
+                    }), delay);
+                };
+            }"""
+        )
+
+        self.set_mode("Familj")
+        self.page.get_by_role("textbox", name="Enhetsnyckel").fill("n" * 48)
+        self.page.get_by_role("button", name="Anslut den här enheten", exact=True).click()
+        self.page.get_by_role("button", name="Privat", exact=True).click()
+        private_empty = self.page.get_by_text(
+            "Allt klart på den privata listan!", exact=True
+        )
+        private_empty.wait_for(state="visible", timeout=10_000)
+
+        self.page.wait_for_timeout(1_500)
+
+        self.assertTrue(private_empty.is_visible())
+        self.assertEqual(
+            self.page.get_by_text("Familjeuppgifter", exact=True).count(),
+            0,
+        )
+
     def test_all_pages_remain_reachable_after_successful_family_response(self):
         overdue_deadline = (date.today() - timedelta(days=2)).isoformat()
         self.page.evaluate(
