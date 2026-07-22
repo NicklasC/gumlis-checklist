@@ -222,7 +222,9 @@ class NavigationTests(BrowserTestCase):
                         data = {
                             tasks: task?.status === 'Aktuell' ? [task] : [],
                             members: [{name: 'Nicklas', active: true, sort_order: 1}],
-                            favorites: [],
+                            favorites: [
+                                {id: 'favorite-trash', title: 'Töm soporna', active: true, sort_order: 1}
+                            ],
                             invalidRows: []
                         };
                     } else if (action === 'createTask' || action === 'updateTask') {
@@ -387,6 +389,30 @@ class NavigationTests(BrowserTestCase):
             ).count(),
             0,
         )
+
+        self.select_tab("Snabblistan")
+        self.page.get_by_text("Familj – Snabblistan", exact=True).wait_for(
+            state="visible", timeout=10_000
+        )
+        self.page.get_by_role(
+            "button", name="Lägg till Töm soporna för Alla", exact=True
+        ).click()
+        self.page.get_by_text("Tillagd för Alla", exact=True).wait_for(
+            state="visible", timeout=10_000
+        )
+        self.page.get_by_role("button", name="Redigera", exact=True).click()
+        self.page.get_by_text("Redigera familjeuppgift", exact=True).wait_for(
+            state="visible", timeout=10_000
+        )
+        self.assertEqual(
+            self.page.get_by_role("textbox", name="Uppgift").input_value(),
+            "Töm soporna",
+        )
+        self.assertEqual(
+            self.page.get_by_role("textbox", name="Deadline (valfritt)").input_value(),
+            "",
+        )
+        self.page.get_by_role("button", name="Avbryt", exact=True).click()
 
     def test_boot_has_no_console_errors(self):
         self.assert_no_unexpected_console_errors()

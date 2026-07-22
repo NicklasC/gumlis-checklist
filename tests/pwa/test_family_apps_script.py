@@ -118,6 +118,13 @@ class FamilyAppsScriptTests(unittest.TestCase):
         self.assertNotIn('"Klar"', bootstrap)
         self.assertNotIn('"Raderad"', bootstrap)
 
+    def test_bootstrap_returns_only_active_sheet_favorites(self):
+        bootstrap = self.code[
+            self.code.index("function bootstrapData_") : self.code.index("function listLaterData_")
+        ]
+        self.assertIn("favorites: parsed.favorites.filter", bootstrap)
+        self.assertIn("return favorite.active", bootstrap)
+
     def test_bootstrap_does_not_read_history_sheet(self):
         self.assertNotIn("HISTORY_SHEET_NAME", self.code)
         self.assertNotIn("Historik'!", self.code)

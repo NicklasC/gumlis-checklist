@@ -120,9 +120,26 @@ Faktisk utförare, serverstämplad sluttid och lat 14-dagars historik utan åter
 
 Kontrollpunkt 6 är publicerad och produktionsverifierad 2026-07-22.
 
-## 7. Snabblistan – Väntar
+## 7. Snabblistan – lokalt godkänd
 
 Aktiva favoriter från Sheet och skapande av uppgift från favorit.
+
+- [x] Endast aktiva favoriter visas och sorteras enligt Sortering i Favoriter-bladet.
+- [x] Favoritraderna är kompakta, mobilanpassade och har tydliga tillgänglighetsnamn.
+- [x] Ett tryck skapar direkt en Aktuell-uppgift med Ansvarig Alla och utan deadline.
+- [x] Skapad av, Tilldelad av och Senast ändrad av härleds fortfarande av servern
+      från enhetsnyckeln genom den befintliga `createTask`-operationen.
+- [x] Dubbeltryck blockeras medan skrivningen pågår och ett misslyckat återförsök
+      återanvänder samma klientgenererade ID.
+- [x] Lyckat skapande uppdaterar Aktuell och familjens bootstrap-cache direkt.
+- [x] Bekräftelsen Tillagd för Alla har åtgärden Redigera som öppnar samma editor
+      som en vanlig familjeuppgift.
+- [x] Komponent-, Apps Script-kontrakts- och GUI-tester täcker favoritflödet.
+- [x] Lokal GitHub Pages-build `29eeee038ba4b267` används av GUI-regressionen.
+- [x] Full regression: 399/399 tester godkända.
+
+Kontrollpunkten är färdig lokalt. Ingen ny Apps Script-operation eller distribution
+krävs; GitHub Pages-builden är ännu inte publicerad.
 
 ## 8. Slutpolish och pilot – Väntar
 
