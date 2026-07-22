@@ -120,7 +120,7 @@ Faktisk utförare, serverstämplad sluttid och lat 14-dagars historik utan åter
 
 Kontrollpunkt 6 är publicerad och produktionsverifierad 2026-07-22.
 
-## 7. Snabblistan – lokalt godkänd
+## 7. Snabblistan – Godkänd
 
 Aktiva favoriter från Sheet och skapande av uppgift från favorit.
 
@@ -135,11 +135,18 @@ Aktiva favoriter från Sheet och skapande av uppgift från favorit.
 - [x] Bekräftelsen Tillagd för Alla har åtgärden Redigera som öppnar samma editor
       som en vanlig familjeuppgift.
 - [x] Komponent-, Apps Script-kontrakts- och GUI-tester täcker favoritflödet.
-- [x] Lokal GitHub Pages-build `29eeee038ba4b267` används av GUI-regressionen.
+- [x] GitHub Pages commit `f697585`, build `29eeee038ba4b267`, är verifierad live.
 - [x] Full regression: 399/399 tester godkända.
+- [x] Produktionsprovet skapade favoritens uppgift som Aktuell för Alla utan deadline.
+- [x] Bekräftelsen och Redigera-flödet verifierades i den publicerade PWA:n.
+- [x] Produktionsarket registrerade Skapad av, Tilldelad av och Senast ändrad av
+      som Nicklas samt Version 1; den exakta testraden rensades efter kontrollen.
+- [x] Efter ny synkning var både arket och appens Aktuell-lista åter tomma.
+- [x] Webbläsarens fellogg var tom under produktionsprovet.
 
-Kontrollpunkten är färdig lokalt. Ingen ny Apps Script-operation eller distribution
-krävs; GitHub Pages-builden är ännu inte publicerad.
+Kontrollpunkt 7 är publicerad och produktionsverifierad 2026-07-22. Ingen ny
+Apps Script-operation eller distribution krävdes; befintlig version 10 och
+`createTask`-operation användes.
 
 ## 8. Slutpolish och pilot – Väntar
 
