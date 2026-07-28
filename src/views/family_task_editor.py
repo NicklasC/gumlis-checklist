@@ -18,6 +18,8 @@ class FamilyTaskEditor(ft.AlertDialog):
         self.on_action = on_action
         self.task: FamilyTask | None = None
         self.pending_create_id: str | None = str(uuid.uuid4())
+        self._available = True
+        self._busy = False
         self.heading = ft.Text("Ny familjeuppgift", color=TEXT_PRIMARY)
         self.title_field = ft.TextField(
             label="Uppgift",
@@ -92,6 +94,7 @@ class FamilyTaskEditor(ft.AlertDialog):
         )
 
     def prepare(self, task: FamilyTask | None = None) -> None:
+        self._available = True
         self.task = task
         self.pending_create_id = None if task else str(uuid.uuid4())
         self.heading.value = "Redigera familjeuppgift" if task else "Ny familjeuppgift"
@@ -153,15 +156,21 @@ class FamilyTaskEditor(ft.AlertDialog):
         self._safe_update()
 
     def set_busy(self, busy: bool) -> None:
-        self.save_button.disabled = busy
+        self._busy = busy
+        self.save_button.disabled = busy or not self._available
         self.cancel_button.disabled = busy
-        self.move_button.disabled = busy
-        self.delete_button.disabled = busy
+        self.move_button.disabled = busy or not self._available
+        self.delete_button.disabled = busy or not self._available
         if busy:
             self.save_button.content.value = "Sparar …"
         else:
             self.save_button.content.value = "Spara ändringar" if self.task else "Skapa uppgift"
         self._safe_update()
+
+    def set_available(self, available: bool) -> None:
+        """Block server mutations after an offline failure while keeping Cancel usable."""
+        self._available = available
+        self.set_busy(self._busy)
 
     async def _submit(self, _event=None) -> None:
         try:
@@ -218,9 +227,12 @@ class FamilyTaskEditor(ft.AlertDialog):
         self.page.show_dialog(dialog)
 
     async def _confirm_delete(self, _event=None) -> None:
+        await self._run_action(FamilyTaskStatus.DELETED)
+        # Keep the confirmation control mounted while its asynchronous action
+        # is running. The parent action closes the top confirmation dialog;
+        # this second pop then closes the editor underneath it.
         if self.page is not None:
             self.page.pop_dialog()
-        await self._run_action(FamilyTaskStatus.DELETED)
 
     async def _run_action(self, action: FamilyTaskStatus) -> None:
         if self.task is None or self.on_action is None:

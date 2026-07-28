@@ -15,6 +15,7 @@ SUITES = [
     ("unit", ["discover", "-s", "tests/unit", "-t", ".", "-q"]),
     ("components", ["discover", "-s", "tests/components", "-t", ".", "-q"]),
     ("pwa-contracts", ["discover", "-s", "tests/pwa", "-t", ".", "-q"]),
+    ("e2e/family-bridge-security", ["tests.e2e.test_family_bridge_security", "-q"]),
     ("e2e/navigation", ["tests.e2e.test_navigation", "-q"]),
     ("e2e/checklist", ["tests.e2e.test_checklist_page", "-q"]),
     ("e2e/favorites", ["tests.e2e.test_favorites_page", "-q"]),

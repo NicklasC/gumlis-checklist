@@ -83,6 +83,12 @@ class FamilyConnectionView(ft.Container):
             else:
                 self._show_connected(connection.member)
                 await self._notify_connected(connection.member)
+        except PermissionError as error:
+            try:
+                await self.repository.disconnect()
+            except Exception:
+                pass
+            self._show_error(str(error))
         except Exception:
             self._show_error("Familjen kunde inte nås. Försök igen.")
 

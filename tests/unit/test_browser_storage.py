@@ -30,6 +30,9 @@ class FakeBridge:
     async def putFamilyBootstrap(self, value):
         self.family_bootstrap = value
 
+    async def deleteFamilyBootstrap(self):
+        self.family_bootstrap = None
+
 
 class BrowserStorageTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
@@ -133,3 +136,16 @@ class BrowserStorageTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(await browser_storage.read_family_bootstrap(), '{"tasks":[]}')
         self.assertEqual(browser_storage.read_cached(), None)
+
+    async def test_family_bootstrap_cache_can_be_removed_without_private_data(self):
+        bridge = FakeBridge()
+
+        async def legacy_loader():
+            return True
+
+        await browser_storage.prepare_browser_storage(legacy_loader, str(self.legacy_path), bridge)
+        await browser_storage.write_family_bootstrap('{"tasks":[{"id":"family"}]}')
+        await browser_storage.delete_family_bootstrap()
+
+        self.assertIsNone(await browser_storage.read_family_bootstrap())
+        self.assertIsNone(browser_storage.read_cached())

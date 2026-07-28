@@ -420,9 +420,22 @@ class FamilyRepositoryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(requests, [])
 
     async def test_disconnect_removes_persisted_connection(self):
-        repo, storage, _ = self.make_repository({"ok": True, "member": "Thor"}, "saved")
+        storage = FakeConnectionStorage("saved")
+        delete_cache = AsyncMock()
+
+        async def transport(_payload):
+            return {"ok": True, "member": "Thor"}
+
+        repo = FamilyRepository(
+            transport,
+            storage.load,
+            storage.save,
+            storage.delete,
+            delete_bootstrap_cache=delete_cache,
+        )
         await repo.disconnect()
         self.assertIsNone(storage.value)
+        delete_cache.assert_awaited_once()
 
     async def test_invalid_local_state_does_not_make_network_request(self):
         repo, _, requests = self.make_repository({"ok": True, "member": "Ida"}, "not json")

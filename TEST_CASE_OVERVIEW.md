@@ -14,11 +14,11 @@ Målet med dokumentet är att en människa snabbt och enkelt ska få en övergri
 
 | Område | Antal | Innehåll |
 |---|---:|---|
-| Enhetstester | 95 | Datamodeller, lagring, migrering, historikregler och familjeanslutning |
-| Komponenttester | 117 | Vyernas och komponenternas logik utan webbläsare |
-| PWA- och distributionstester | 90 | Manifest, Apps Script-API, familjebrygga, byggfiler, sidmallar och de två repona |
-| GUI/E2E-tester | 75 | Verkliga användarflöden i Chromium |
-| **Totalt** | **377** | |
+| Enhetstester | 100 | Datamodeller, lagring, migrering, historikregler och familjeanslutning |
+| Komponenttester | 137 | Vyernas och komponenternas logik utan webbläsare |
+| PWA- och distributionstester | 104 | Manifest, Apps Script-API, familjebrygga, byggfiler, sidmallar och de två repona |
+| GUI/E2E-tester | 83 | Verkliga användarflöden och säkerhetsangrepp i Chromium |
+| **Totalt** | **424** | |
 
 GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den byggda appen och deploy-repot finns lokalt; annars markeras de som överhoppade.
 
@@ -401,6 +401,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_service_account_private_key_stays_server_side` | Servicekontots privata nyckel används bara på serversidan och förekommer aldrig i iframe-klienten. |
 | `test_member_identity_comes_from_device_token` | Servern härleder medlemmen från enhetsnyckeln och accepterar inte ett självrapporterat namn från klienten. |
 | `test_rejects_wrong_key_before_action_dispatch` | Fel enhetsnyckel nekas innan någon API-åtgärd körs. |
+| `test_only_authenticated_web_entrypoints_are_public` | Endast webbentrypoints och den autentiserade dispatchfunktionen är publika; editoradministrationen är privat för `google.script.run`. |
 | `test_supports_ping_bootstrap_later_history_and_probe_operations` | API:t har ping, bootstrap, separat Senare/Historik och dubblettskyddad provskrivning. |
 | `test_create_and_update_are_authenticated_idempotent_and_versioned` | Skapa och redigera autentiseras, låses, dubblettskyddas och versionskontrolleras. |
 | `test_assignment_audit_changes_only_when_assignee_changes` | Tilldelad av och tid ändras enbart när ansvarig faktiskt byts. |
@@ -413,6 +414,8 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_probe_sheet_is_separate_from_family_tasks` | Provdata skrivs till ett avskilt tekniskt blad. |
 | `test_direct_post_returns_json_without_putting_key_in_url` | Direkt POST ger JSON och lägger aldrig enhetsnyckeln i URL:en. |
 | `test_bridge_restricts_parent_origin_and_targets_reply_origin` | Reservbryggan accepterar bara tillåtna ursprung och svarar endast till anroparen. |
+| `test_bridge_requires_a_validated_client_nonce` | `doGet` accepterar och återinjicerar endast en korrekt formaterad 256-bitars kanalnonce från PWA:n. |
+| `test_bridge_ready_signal_never_uses_a_wildcard_target` | Bryggans ready-signal skickas bara mot uttryckligen tillåtna PWA-origins och aldrig till wildcard. |
 | `test_manifest_runs_as_owner_and_allows_anonymous_web_app_calls` | Webbappen körs som Nicklas men har bara behörighet att göra externa HTTPS-anrop; den får ingen åtkomst till Nicklas Google-kalkylark. |
 
 ### PWA-brygga för Familj — `tests/pwa/test_family_bridge.py`
@@ -421,7 +424,10 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 |---|---|
 | `test_family_iframe_is_created_lazily` | Apps Script-ramen skapas först när Familj faktiskt gör ett anrop. |
 | `test_bridge_has_ten_second_timeout` | Ett familjeanrop avslutas med ett kontrollerat timeoutfel efter tio sekunder. |
-| `test_bridge_validates_iframe_source_and_response_origin` | PWA:n accepterar bara svar från den inramade, betrodda Google-sidan. |
+| `test_bridge_authenticates_sandbox_before_binding_window` | PWA:n kräver rätt nonce och strikt Apps Script-sandbox-origin innan den binder kommunikationsfönstret. |
+| `test_bridge_nonce_uses_cryptographic_randomness` | Kanalnoncen består av 256 kryptografiskt slumpade bitar och läggs ensam i iframe-adressen. |
+| `test_family_bridge_refuses_to_run_when_gumli_is_embedded` | Familjebryggan startar inte när Gumli har bäddats in av en annan webbplats. |
+| `test_timed_out_handshake_is_reset_and_never_sent_late` | Ett timeoutat anrop skickas aldrig i efterhand och en misslyckad handshake återställs. |
 | `test_device_token_is_not_part_of_api_url` | Enhetsnyckeln förekommer inte i Apps Script-adressen. |
 | `test_diagnostics_never_store_request_payload_or_token` | Den säkra webbläsardiagnostiken lagrar varken anropsinnehåll eller enhetsnyckel. |
 | `test_diagnostics_reads_member_from_stable_response_envelope` | Diagnostiken läser medlemmen ur det stabila API-svarets `data`-del och stöder samtidigt äldre svar. |
@@ -444,6 +450,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_built_manifest_is_valid_json` | Det byggda manifestet är giltig JSON och avser Gumli. |
 | `test_built_index_uses_expected_base` | Den byggda startsidan använder `/gumlis-checklist/`. |
 | `test_built_index_uses_hashed_python_archive_url` | Startsidan hänvisar till en versionsmärkt Python-fil. |
+| `test_built_family_bridge_uses_authenticated_nonce_handshake` | Den färdigbyggda startsidan innehåller den nonce-autentiserade familjebryggan och inte den tidigare breda originkontrollen. |
 | `test_built_icons_directory_exists` | Den byggda appen innehåller en ikonmapp. |
 | `test_built_192_icon_exists` | Installationsikonen i storlek 192 px finns. |
 | `test_built_512_icon_exists` | Installationsikonen i storlek 512 px finns. |
@@ -471,6 +478,16 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_deploy_origin_is_github_pages_repository` | Deploy-repots `origin` pekar på GitHub Pages-repot. |
 
 ## GUI/E2E-tester — användarens perspektiv
+
+### Säkerhetsangrepp mot Familj-bryggan — `tests/e2e/test_family_bridge_security.py`
+
+| Testfall | Vad användaren eller angriparen gör | Varför det behöver testas |
+|---|---|---|
+| `test_wrong_nonce_and_broad_google_origin_cannot_capture_request` | En falsk Google-sida försöker vinna handskakningen med fel nonce eller ett tidigare tillåtet brett ursprung. | Enhetsnyckeln får endast skickas till exakt den Apps Script-frame som Gumli skapade. |
+| `test_apps_script_bridge_rejects_wrong_source_and_nonce` | Ett syskonfönster och ett anrop med fel nonce försöker nå den verkliga Bridge-koden. | Bara Gumli i toppfönstret med rätt kanalnonce ska kunna anropa `handleRequest`. |
+| `test_embedded_gumli_never_creates_family_frame_or_forwards_token` | Gumli bäddas in i en annan sida som försöker starta Familj. | Clickjacking eller ett fientligt överordnat fönster får aldrig få appen att skicka enhetsnyckeln. |
+| `test_late_ready_after_timeout_is_ignored_and_retry_gets_new_nonce` | Den äkta framen svarar först efter timeout och användaren försöker därefter igen. | Ett misslyckat anrop får inte köras i efterhand och återförsöket måste få en ny säker kanal. |
+| `test_one_timeout_does_not_abort_another_pending_handshake` | Två anrop väntar samtidigt på första handskakningen och det ena når timeout. | Ett enskilt timeoutfel får inte avbryta eller felrapportera ett annat fortfarande giltigt anrop. |
 
 ### Start och navigering — `tests/e2e/test_navigation.py`
 

@@ -148,6 +148,68 @@ Kontrollpunkt 7 är publicerad och produktionsverifierad 2026-07-22. Ingen ny
 Apps Script-operation eller distribution krävdes; befintlig version 10 och
 `createTask`-operation användes.
 
-## 8. Slutpolish och pilot – Väntar
+## 8. Slutpolish och pilot – Tekniskt implementerad, slutverifiering väntar
 
-Offline, konflikter, säkerhet, prestanda, full regression och pilot på en andra telefon.
+### Implementerat
+
+- [x] Sparad bootstrap visas vid nätverksfel med texten `Offline – visar sparad data`.
+- [x] Skapa, redigera, slutföra, flytta, radera och skapa från Snabblistan
+      blockeras offline; inga skrivningar köas.
+- [x] `Försök igen` synkar om vyn och återaktiverar skrivning efter lyckat svar.
+- [x] Spärrad enhetsnyckel rensar familjecachen och visar inget gammalt familjeinnehåll.
+- [x] `Koppla från Familj` rensar både anslutning och familjecache på enheten.
+- [x] Redigeringsdialogen kan avbrytas efter ett offlinefel men kan inte skicka fler
+      skrivningar förrän vyn har synkats igen.
+- [x] Raderingsbekräftelsen ligger kvar tills den asynkrona serveråtgärden är klar.
+- [x] Aktuell-listan hanterar 50 uppgifter vid 320, 390 och 412 pixlars bredd utan
+      horisontell sidöverskridning.
+- [x] Privat/Jobb-starten skapar fortfarande inget familjerepository och gör inget
+      familjeanrop.
+- [x] Bygget rensar Python-bytecode och `__pycache__` före paketering. Slutarkivet
+      är 37 092 byte och innehåller 32 filer utan cache- eller bytecodefiler.
+- [x] Samtida A/B-mätning mot föregående publicerade build gav 5,93 s mot 6,09 s
+      för varm start, en skillnad på 158 ms (2,7 procent), vilket är inom kravet.
+      Kallstarten blev samtidigt tydligt snabbare genom det mindre apparkivet.
+- [x] Spårade filer i käll- och Pages-repository samt det byggda apparkivet har
+      kontrollerats efter privata nycklar, vanliga API-tokenformat och känsliga filnamn.
+      Enda textträffen är ett test som uttryckligen kontrollerar att
+      `BEGIN PRIVATE KEY` saknas.
+- [x] Säkerhetsgranskningen identifierade och den lokala koden stängde de publika
+      editorfunktionerna samt band PWA-bryggan med en 256-bitars engångs-nonce,
+      strikt Google-sandbox-origin och exakt kommunikationsfönster.
+- [x] Timeoutad handshake återställs; ett sent ready-svar kan inte längre skicka
+      ett anrop efter att användaren har fått `TIMEOUT`.
+- [x] Fem isolerade Chromium-angrepp verifierar fel nonce, fel fönster, tidigare
+      för bred Google-origin, inbäddad Gumli, samtidiga väntande anrop och sent
+      ready-svar med säkert återförsök.
+- [ ] Produktionsversion 10 behålls endast tills ett samordnat säkerhetssläpp med
+      nytt Apps Script deployment-ID och motsvarande PWA-adress kan verifieras.
+
+### Verifieringsläge
+
+- [x] Berörda enhets- och komponenttester är godkända.
+- [x] Riktade GUI-tester för skapa/redigera/slutföra samt offline/cache/återförsök
+      är godkända mot den rena byggnaden före den avgränsade raderingsfixen.
+- [x] Navigationsgruppen gav 15 av 16 godkända tester och identifierade den
+      intermittenta dialoglivscykeln vid radering; den bakomliggande ordningen är korrigerad.
+- [ ] Kör raderingsflödet upprepat mot slutbyggnaden.
+- [x] Hela sviten är godkänd med 424 av 424 tester.
+- [ ] Publicera och verifiera lokal slutbuild `23591048ffaf3d08` live tillsammans
+      med den nya Apps Script-deploymenten.
+- [ ] Verifiera den verkliga Google-sandbox-originen och att en avsiktligt felaktig
+      testnyckel ger `UNAUTHORIZED` genom den nya produktionsbryggan.
+- [ ] Bekräfta att anslutna telefoner har hämtat den nya PWA:n och stäng därefter
+      den gamla sårbara Apps Script-deploymenten.
+
+### Nicklas mobilpilot
+
+- [ ] Uppdatera Gumli på Nicklas telefon och kontrollera normal Privat/Jobb-start.
+- [ ] Installera Gumli på en andra Androidtelefon i Chrome.
+- [ ] Anslut med just den telefonens personliga enhetsnyckel och kontrollera rätt medlem.
+- [ ] Stäng appen, starta om Chrome/PWA och kontrollera att anslutningen ligger kvar.
+- [ ] Kontrollera sparad familjelista offline och lyckad `Försök igen` online.
+- [ ] Skapa, redigera, slutför och radera en provuppgift på den andra telefonen.
+- [ ] Rulla därefter ut till alla fyra telefonerna och godkänn slutpiloten.
+
+Kontrollpunkt 8 får inte markeras Godkänd förrän den automatiska
+slutverifieringen, livekontrollen och minst en andra verklig Androidtelefon är godkända.

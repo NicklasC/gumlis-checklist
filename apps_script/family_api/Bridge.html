@@ -8,15 +8,23 @@
   <body>
     <script>
       const allowedOrigins = new Set(<?!= allowedOriginsJson ?>);
+      const bridgeNonce = <?!= bridgeNonceJson ?>;
 
       window.addEventListener('message', event => {
-        if (!allowedOrigins.has(event.origin)) return;
+        if (event.source !== window.top || !allowedOrigins.has(event.origin)) return;
         const message = event.data;
-        if (!message || message.type !== 'gumli-family-request' || !message.requestId) return;
+        if (
+          !bridgeNonce ||
+          !message ||
+          message.type !== 'gumli-family-request' ||
+          message.bridgeNonce !== bridgeNonce ||
+          !message.requestId
+        ) return;
 
         const reply = response => {
           event.source?.postMessage({
             type: 'gumli-family-response',
+            bridgeNonce,
             requestId: message.requestId,
             response,
           }, event.origin);
@@ -28,9 +36,14 @@
           .handleRequest(message.payload || {});
       });
 
-      // Apps Script wraps this HTML in its own sandbox iframe. `top` reaches
-      // Gumli, which then remembers this exact inner window and origin.
-      window.top.postMessage({ type: 'gumli-family-ready' }, '*');
+      // Apps Script wraps this HTML in its own sandbox iframe. The nonce binds
+      // this inner window to the exact frame request created by Gumli.
+      for (const origin of allowedOrigins) {
+        window.top.postMessage({
+          type: 'gumli-family-ready',
+          bridgeNonce,
+        }, origin);
+      }
     </script>
   </body>
 </html>

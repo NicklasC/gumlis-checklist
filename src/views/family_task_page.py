@@ -21,8 +21,14 @@ class FamilyTaskPageView(ft.Container):
         self.task_page: FamilyTaskPage | None = None
         self.selected_filter = "Alla"
         self._sync_running = False
+        self.mutations_enabled = False
 
         self.status_text = ft.Text("", size=11, color=TEXT_MUTED)
+        self.retry_button = ft.TextButton(
+            content=ft.Text("Försök igen", size=11),
+            on_click=self._retry,
+            visible=False,
+        )
         self.member_text = ft.Text(f"Ansluten som {member}", size=11, color=MINT_GREEN)
         self.filter_row = ft.Row(spacing=6, tight=True)
         self.list_container = ft.Column(scroll=ft.ScrollMode.AUTO, spacing=6, expand=True)
@@ -47,7 +53,11 @@ class FamilyTaskPageView(ft.Container):
                                 spacing=1,
                                 tight=True,
                             ),
-                            self.status_text,
+                            ft.Row(
+                                controls=[self.status_text, self.retry_button],
+                                spacing=4,
+                                tight=True,
+                            ),
                         ],
                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     ),
@@ -69,15 +79,28 @@ class FamilyTaskPageView(ft.Container):
         self.page.run_task(self._sync)
 
     async def _sync(self):
+        self._set_mutations_enabled(False)
+        self._set_retry_visible(False)
         self._set_status("Laddar …", TEXT_MUTED)
         try:
             self.task_page = await self._load_page()
+            self._set_mutations_enabled(self.action == "listLater")
             self._rebuild_filter_buttons()
             self._render_tasks()
             suffix = f" · {len(self.task_page.invalid_rows)} radfel" if self.task_page.invalid_rows else ""
+            self._sync_running = False
             self._set_status(f"Synkad nyss{suffix}", MINT_GREEN)
         except Exception:
-            self._set_status("Kunde inte synka Familj", "#F87171")
+            self._sync_running = False
+            self._set_mutations_enabled(False)
+            self._render_tasks()
+            self._set_status(
+                "Offline – visar tidigare data"
+                if self.task_page is not None
+                else "Kunde inte synka Familj",
+                "#F87171",
+            )
+            self._set_retry_visible(True)
         finally:
             self._sync_running = False
 
@@ -130,9 +153,15 @@ class FamilyTaskPageView(ft.Container):
             else [
                 FamilyTaskRow(
                     task,
-                    on_open=self._open_edit if self.action == "listLater" else None,
+                    on_open=(
+                        self._open_edit
+                        if self.action == "listLater" and self.mutations_enabled
+                        else None
+                    ),
                     on_complete=(
-                        self._start_completion if self.action == "listLater" else None
+                        self._start_completion
+                        if self.action == "listLater" and self.mutations_enabled
+                        else None
                     ),
                 )
                 for task in tasks
@@ -140,7 +169,7 @@ class FamilyTaskPageView(ft.Container):
         )
 
     def _open_edit(self, task):
-        if self.editor is None:
+        if self.editor is None or not self.mutations_enabled:
             return
         self.editor.prepare(task)
         try:
@@ -150,7 +179,7 @@ class FamilyTaskPageView(ft.Container):
             pass
 
     def _start_completion(self, task):
-        if self.page is not None:
+        if self.mutations_enabled and self.page is not None:
             self.page.run_task(self._complete_task, task)
 
     async def _complete_task(self, task):
@@ -164,7 +193,11 @@ class FamilyTaskPageView(ft.Container):
                 f"Uppgiften ändrades av {conflict.latest_task.updated_by}",
                 OVERDUE_COLOR,
             )
-        except (ValueError, PermissionError, LookupError, TimeoutError) as error:
+        except (TimeoutError, ConnectionError):
+            self._set_mutations_enabled(False)
+            self._set_retry_visible(True)
+            self._set_status("Offline – ingen ändring sparades", OVERDUE_COLOR)
+        except (ValueError, PermissionError, LookupError) as error:
             self._set_status(str(error), OVERDUE_COLOR)
         except Exception:
             self._set_status("Kunde inte slutföra uppgiften. Försök igen.", OVERDUE_COLOR)
@@ -178,7 +211,12 @@ class FamilyTaskPageView(ft.Container):
         except FamilyVersionConflict as conflict:
             self._upsert_task(conflict.latest_task)
             editor.load_conflict(conflict.latest_task)
-        except (ValueError, PermissionError, LookupError, TimeoutError) as error:
+        except (TimeoutError, ConnectionError):
+            self._set_mutations_enabled(False)
+            self._set_retry_visible(True)
+            editor.set_available(False)
+            editor.set_error("Offline – ingen ändring sparades")
+        except (ValueError, PermissionError, LookupError) as error:
             editor.set_error(str(error))
         except Exception:
             editor.set_error("Kunde inte spara uppgiften. Försök igen.")
@@ -212,7 +250,12 @@ class FamilyTaskPageView(ft.Container):
         except FamilyVersionConflict as conflict:
             self._upsert_task(conflict.latest_task)
             editor.load_conflict(conflict.latest_task)
-        except (ValueError, PermissionError, LookupError, TimeoutError) as error:
+        except (TimeoutError, ConnectionError):
+            self._set_mutations_enabled(False)
+            self._set_retry_visible(True)
+            editor.set_available(False)
+            editor.set_error("Offline – ingen ändring sparades")
+        except (ValueError, PermissionError, LookupError) as error:
             editor.set_error(str(error))
         except Exception:
             editor.set_error("Kunde inte ändra uppgiften. Försök igen.")
@@ -221,6 +264,18 @@ class FamilyTaskPageView(ft.Container):
         self.status_text.value = value
         self.status_text.color = color
         self._safe_update()
+
+    def _set_mutations_enabled(self, enabled: bool):
+        self.mutations_enabled = enabled
+        if self.task_page is not None:
+            self._render_tasks()
+
+    def _set_retry_visible(self, visible: bool):
+        self.retry_button.visible = visible
+        self._safe_update()
+
+    def _retry(self, _event=None):
+        self.activate()
 
     def _safe_update(self):
         try:

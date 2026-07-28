@@ -110,6 +110,16 @@ def _install_bridge():
                 transaction.onerror = () => { db.close(); reject(transaction.error); };
                 transaction.onabort = () => { db.close(); reject(transaction.error); };
               });
+            },
+            async deleteFamilyBootstrap() {
+              const db = await open();
+              return new Promise((resolve, reject) => {
+                const transaction = db.transaction(STORE_NAME, 'readwrite');
+                transaction.objectStore(STORE_NAME).delete('family-bootstrap-v1');
+                transaction.oncomplete = () => { db.close(); resolve(true); };
+                transaction.onerror = () => { db.close(); reject(transaction.error); };
+                transaction.onabort = () => { db.close(); reject(transaction.error); };
+              });
             }
           };
         })();
@@ -206,6 +216,12 @@ async def write_family_bootstrap(content: str) -> None:
     if _bridge is None:
         raise RuntimeError("Webbläsarlagringen är inte redo")
     await _bridge.putFamilyBootstrap(content)
+
+
+async def delete_family_bootstrap() -> None:
+    if _bridge is None:
+        return
+    await _bridge.deleteFamilyBootstrap()
 
 
 def reset_storage_state():

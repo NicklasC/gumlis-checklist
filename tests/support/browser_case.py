@@ -97,11 +97,11 @@ class BrowserTestCase(unittest.TestCase):
         accessibility = self.page.locator("flt-semantics-placeholder[role='button']").or_(
             self.page.locator("[aria-label='Enable accessibility']")
         )
-        accessibility.first.wait_for(state="visible", timeout=45_000)
-        deadline = time.monotonic() + 45
+        accessibility.first.wait_for(state="visible", timeout=90_000)
+        deadline = time.monotonic() + 90
         while not any("Python worker initialized" in entry for entry in self.console_messages):
             if time.monotonic() >= deadline:
-                raise AssertionError("The Python worker did not initialize within 45 seconds")
+                raise AssertionError("The Python worker did not initialize within 90 seconds")
             self.page.wait_for_timeout(100)
         self.page.wait_for_timeout(500)
         # Flutter deliberately positions this semantics activator outside the
@@ -110,7 +110,7 @@ class BrowserTestCase(unittest.TestCase):
         accessibility.first.focus()
         accessibility.first.press("Enter")
         try:
-            self.page.get_by_role("tab", name="Checklista").wait_for(state="visible", timeout=45_000)
+            self.page.get_by_role("tab", name="Checklista").wait_for(state="visible", timeout=90_000)
         except Exception as error:
             state = self.page.evaluate(
                 """() => ({

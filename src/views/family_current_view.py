@@ -191,7 +191,7 @@ class FamilyTaskRow(ft.Container):
 
 
 class FamilyCurrentView(ft.Container):
-    """Cached, synchronizing read-only Aktuell view for Familj checkpoint 3A."""
+    """Cached, synchronizing Aktuell view with explicit offline write blocking."""
 
     def __init__(self, repository, member: str, *args, **kwargs):
         self.repository = repository
@@ -199,8 +199,14 @@ class FamilyCurrentView(ft.Container):
         self.bootstrap: FamilyBootstrap | None = None
         self.selected_filter = "Alla"
         self._sync_running = False
+        self.mutations_enabled = False
 
         self.status_text = ft.Text("", size=11, color=TEXT_MUTED)
+        self.retry_button = ft.TextButton(
+            content=ft.Text("Försök igen", size=11),
+            on_click=self._retry,
+            visible=False,
+        )
         self.member_text = ft.Text(f"Ansluten som {member}", size=11, color=MINT_GREEN)
         self.header_text = ft.Text(
             "Familjeuppgifter",
@@ -233,7 +239,11 @@ class FamilyCurrentView(ft.Container):
                     ft.Row(
                         controls=[
                             ft.Column(controls=[self.header_text, self.member_text], spacing=1, tight=True),
-                            ft.Row(controls=[self.status_text, self.create_button], spacing=4, tight=True),
+                            ft.Row(
+                                controls=[self.status_text, self.retry_button, self.create_button],
+                                spacing=4,
+                                tight=True,
+                            ),
                         ],
                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     ),
@@ -255,6 +265,13 @@ class FamilyCurrentView(ft.Container):
         self.page.run_task(self._sync)
 
     async def _sync(self):
+        # Keep a previously verified online view interactive while a normal
+        # revisit refreshes it. A failed refresh still switches the cached
+        # content to read-only below; first load and offline retries already
+        # start with mutations disabled.
+        if self.bootstrap is None:
+            self._set_mutations_enabled(False)
+        self._set_retry_visible(False)
         try:
             cached = await self.repository.cached_bootstrap()
             if cached is not None:
@@ -264,22 +281,60 @@ class FamilyCurrentView(ft.Container):
                 self._set_status("Laddar Familj …", TEXT_MUTED)
             try:
                 bootstrap = await self.repository.bootstrap()
+                self._set_mutations_enabled(True)
                 self._set_bootstrap(bootstrap)
                 suffix = f" · {len(bootstrap.invalid_rows)} radfel" if bootstrap.invalid_rows else ""
+                self._sync_running = False
                 self._set_status(f"Synkad nyss{suffix}", MINT_GREEN)
+            except PermissionError as error:
+                self._sync_running = False
+                try:
+                    await self.repository.clear_bootstrap_cache()
+                except Exception:
+                    pass
+                self._clear_bootstrap()
+                self._set_status(str(error), OVERDUE_COLOR)
+                self._set_retry_visible(True)
             except Exception:
+                self._sync_running = False
+                self._set_mutations_enabled(False)
                 if cached is not None:
                     self._set_status("Offline – visar sparad data", OVERDUE_COLOR)
                 else:
                     self._set_status("Kunde inte synka Familj", OVERDUE_COLOR)
+                self._set_retry_visible(True)
         finally:
             self._sync_running = False
 
     def _set_bootstrap(self, bootstrap: FamilyBootstrap):
         self.bootstrap = bootstrap
-        self._create_icon_button.disabled = False
         self._rebuild_filter_buttons()
         self._render_tasks()
+
+    def _clear_bootstrap(self):
+        self.bootstrap = None
+        self._rebuild_filter_buttons()
+        self._render_tasks()
+
+    def _set_mutations_enabled(self, enabled: bool):
+        self.mutations_enabled = enabled
+        if enabled:
+            # Enable once after the first live sync. Later offline states are
+            # enforced by the handler guard so Flet keeps the callback stable.
+            self._create_icon_button.disabled = False
+        self._create_icon_button.icon_color = MINT_GREEN if enabled else TEXT_MUTED
+        self._create_icon_button.tooltip = (
+            "Ny familjeuppgift" if enabled else "Synka Familj för att göra ändringar"
+        )
+        if self.bootstrap is not None:
+            self._render_tasks()
+
+    def _set_retry_visible(self, visible: bool):
+        self.retry_button.visible = visible
+        self._safe_update()
+
+    def _retry(self, _event=None):
+        self.activate()
 
     def _visible_tasks(self) -> list[FamilyTask]:
         tasks = list(self.bootstrap.tasks if self.bootstrap else [])
@@ -331,17 +386,21 @@ class FamilyCurrentView(ft.Container):
             self.list_container.controls = [
                 FamilyTaskRow(
                     task,
-                    on_open=self._open_edit,
-                    on_complete=self._start_completion,
+                    on_open=self._open_edit if self.mutations_enabled else None,
+                    on_complete=self._start_completion if self.mutations_enabled else None,
                 )
                 for task in tasks
             ]
 
     def _open_create(self, _event=None):
+        if not self.mutations_enabled:
+            return
         self.editor.prepare()
         self._show_editor()
 
     def _open_edit(self, task: FamilyTask):
+        if not self.mutations_enabled:
+            return
         self.editor.prepare(task)
         self._show_editor()
 
@@ -353,7 +412,7 @@ class FamilyCurrentView(ft.Container):
             pass
 
     def _start_completion(self, task: FamilyTask):
-        if self.page is not None:
+        if self.mutations_enabled and self.page is not None:
             self.page.run_task(self._complete_task, task)
 
     async def _complete_task(self, task: FamilyTask):
@@ -368,7 +427,11 @@ class FamilyCurrentView(ft.Container):
                 f"Uppgiften ändrades av {conflict.latest_task.updated_by}",
                 OVERDUE_COLOR,
             )
-        except (ValueError, PermissionError, LookupError, TimeoutError) as error:
+        except PermissionError as error:
+            await self._handle_permission_error(error)
+        except (TimeoutError, ConnectionError):
+            self._mark_offline("Offline – ingen ändring sparades")
+        except (ValueError, LookupError) as error:
             self._set_status(str(error), OVERDUE_COLOR)
         except Exception:
             self._set_status("Kunde inte slutföra uppgiften. Försök igen.", OVERDUE_COLOR)
@@ -398,7 +461,15 @@ class FamilyCurrentView(ft.Container):
         except FamilyVersionConflict as conflict:
             self._upsert_task(conflict.latest_task)
             editor.load_conflict(conflict.latest_task)
-        except (ValueError, PermissionError, LookupError, TimeoutError) as error:
+        except PermissionError as error:
+            await self._handle_permission_error(error)
+            editor.set_available(False)
+            editor.set_error(str(error))
+        except (TimeoutError, ConnectionError):
+            self._mark_offline("Offline – ingen ändring sparades")
+            editor.set_available(False)
+            editor.set_error("Offline – ingen ändring sparades")
+        except (ValueError, LookupError) as error:
             editor.set_error(str(error))
         except Exception:
             editor.set_error("Kunde inte spara uppgiften. Försök igen.")
@@ -435,7 +506,15 @@ class FamilyCurrentView(ft.Container):
         except FamilyVersionConflict as conflict:
             self._upsert_task(conflict.latest_task)
             editor.load_conflict(conflict.latest_task)
-        except (ValueError, PermissionError, LookupError, TimeoutError) as error:
+        except PermissionError as error:
+            await self._handle_permission_error(error)
+            editor.set_available(False)
+            editor.set_error(str(error))
+        except (TimeoutError, ConnectionError):
+            self._mark_offline("Offline – ingen ändring sparades")
+            editor.set_available(False)
+            editor.set_error("Offline – ingen ändring sparades")
+        except (ValueError, LookupError) as error:
             editor.set_error(str(error))
         except Exception:
             editor.set_error("Kunde inte ändra uppgiften. Försök igen.")
@@ -444,6 +523,21 @@ class FamilyCurrentView(ft.Container):
         self.status_text.value = value
         self.status_text.color = color
         self._safe_update()
+
+    async def _handle_permission_error(self, error: PermissionError):
+        try:
+            await self.repository.clear_bootstrap_cache()
+        except Exception:
+            pass
+        self._set_mutations_enabled(False)
+        self._clear_bootstrap()
+        self._set_retry_visible(True)
+        self._set_status(str(error), OVERDUE_COLOR)
+
+    def _mark_offline(self, message: str):
+        self._set_mutations_enabled(False)
+        self._set_retry_visible(True)
+        self._set_status(message, OVERDUE_COLOR)
 
     def _safe_update(self):
         try:

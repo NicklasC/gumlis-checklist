@@ -5,6 +5,70 @@ from tests.support.browser_case import BrowserTestCase, e2e_test
 
 @e2e_test
 class NavigationTests(BrowserTestCase):
+    def install_family_polish_bridge(self, task_count=1):
+        self.page.evaluate(
+            """(taskCount) => {
+                window.__gumliFamilyOffline = false;
+                const tasks = Array.from({length: taskCount}, (_, index) => ({
+                    id: `polish-${index}`,
+                    title: `Pilotuppgift ${index + 1}`,
+                    status: 'Aktuell',
+                    assignee: index % 2 === 0 ? 'Nicklas' : 'Alla',
+                    assigned_by: 'Nicklas',
+                    assigned_at: '2026-07-22T12:00:00+00:00',
+                    created_by: 'Nicklas',
+                    created_at: `2026-07-22T12:${String(index % 60).padStart(2, '0')}:00+00:00`,
+                    deadline: null,
+                    updated_by: 'Nicklas',
+                    updated_at: '2026-07-22T12:00:00+00:00',
+                    completed_by: null,
+                    completed_at: null,
+                    version: 1
+                }));
+                window.gumliFamilyBridge.forward = (message, worker) => {
+                    const action = message.payload?.action;
+                    const offline = window.__gumliFamilyOffline && action !== 'ping';
+                    const data = action === 'ping'
+                        ? {member: 'Nicklas'}
+                        : action === 'bootstrap'
+                        ? {
+                            tasks,
+                            members: [{name: 'Nicklas', active: true, sort_order: 1}],
+                            favorites: [
+                                {id: 'pilot-favorite', title: 'Töm soporna', active: true, sort_order: 1}
+                            ],
+                            invalidRows: []
+                        }
+                        : {tasks: [], invalidRows: []};
+                    worker.postMessage({
+                        type: 'gumli-family-response',
+                        requestId: message.requestId,
+                        response: offline
+                            ? {ok: false, data: null, error: 'SERVER_ERROR', server_time: null}
+                            : {
+                                ok: true,
+                                data,
+                                error: null,
+                                server_time: '2026-07-22T12:00:00+00:00',
+                                api_version: 'family-polish-test'
+                            }
+                    });
+                };
+            }""",
+            task_count,
+        )
+
+    def connect_family_polish_bridge(self):
+        self.set_mode("Familj")
+        self.page.get_by_role("textbox", name="Enhetsnyckel").fill("n" * 48)
+        self.page.get_by_role(
+            "button", name="Anslut den här enheten", exact=True
+        ).click()
+        self.page.get_by_text("Synkad nyss", exact=True).wait_for(
+            state="visible", timeout=10_000
+        )
+        self.page.wait_for_timeout(500)
+
     def test_app_title_is_visible(self):
         self.assertTrue(self.page.get_by_text("Gumli", exact=True).is_visible())
 
@@ -294,9 +358,12 @@ class NavigationTests(BrowserTestCase):
         self.page.get_by_text("Synkad nyss", exact=True).wait_for(
             state="visible", timeout=10_000
         )
+        self.page.wait_for_timeout(500)
 
         self.page.get_by_role("button", name="Ny familjeuppgift", exact=True).click()
-        self.page.get_by_text("Ny familjeuppgift", exact=True).wait_for(state="visible")
+        self.page.get_by_role("textbox", name="Uppgift", exact=False).wait_for(
+            state="visible", timeout=10_000
+        )
         self.page.get_by_role("textbox", name="Uppgift").fill("GUI-familjeuppgift")
         self.page.get_by_role("textbox", name="Deadline (valfritt)").fill("2026-07-28")
         self.page.wait_for_timeout(300)
@@ -349,6 +416,7 @@ class NavigationTests(BrowserTestCase):
         later_task.click()
         self.page.get_by_role("button", name="Radera", exact=True).click()
         self.page.get_by_text("Radera familjeuppgift", exact=True).wait_for(state="visible")
+        self.page.wait_for_timeout(300)
         self.page.get_by_role("button", name="Radera uppgift", exact=True).click()
         self.page.get_by_text("Uppgiften raderad", exact=True).wait_for(
             state="visible", timeout=10_000
@@ -358,8 +426,17 @@ class NavigationTests(BrowserTestCase):
         )
 
         self.select_tab("Checklista")
+        self.page.get_by_text("Familjeuppgifter", exact=True).wait_for(
+            state="visible", timeout=10_000
+        )
+        self.page.get_by_text("Synkad nyss", exact=True).wait_for(
+            state="visible", timeout=10_000
+        )
+        self.page.wait_for_timeout(500)
         self.page.get_by_role("button", name="Ny familjeuppgift", exact=True).click()
-        self.page.get_by_text("Ny familjeuppgift", exact=True).wait_for(state="visible")
+        self.page.get_by_role("textbox", name="Uppgift", exact=False).wait_for(
+            state="visible", timeout=10_000
+        )
         self.page.get_by_role("textbox", name="Uppgift").fill("GUI-slutförande")
         self.page.wait_for_timeout(300)
         self.page.get_by_role("button", name="Skapa uppgift", exact=True).click()
@@ -416,3 +493,70 @@ class NavigationTests(BrowserTestCase):
 
     def test_boot_has_no_console_errors(self):
         self.assert_no_unexpected_console_errors()
+
+    def test_family_offline_cache_is_read_only_and_retry_recovers(self):
+        self.install_family_polish_bridge(task_count=1)
+        self.connect_family_polish_bridge()
+        self.page.get_by_role(
+            "button", name="Redigera Pilotuppgift 1", exact=False
+        ).wait_for(state="visible", timeout=10_000)
+
+        self.page.evaluate("window.__gumliFamilyOffline = true")
+        self.set_mode("Privat")
+        self.set_mode("Familj")
+        self.page.get_by_text("Offline – visar sparad data", exact=True).wait_for(
+            state="visible", timeout=10_000
+        )
+
+        self.page.get_by_role("button", name="Ny familjeuppgift", exact=True).click()
+        self.page.wait_for_timeout(300)
+        self.assertEqual(self.page.get_by_role("textbox", name="Uppgift").count(), 0)
+        self.assertEqual(
+            self.page.get_by_role(
+                "button", name="Markera Pilotuppgift 1 som klar", exact=True
+            ).count(),
+            0,
+        )
+        self.assertEqual(
+            self.page.get_by_role(
+                "button", name="Redigera Pilotuppgift 1", exact=False
+            ).count(),
+            0,
+        )
+
+        self.page.evaluate("window.__gumliFamilyOffline = false")
+        self.page.get_by_role("button", name="Försök igen", exact=True).click()
+        self.page.get_by_text("Synkad nyss", exact=True).wait_for(
+            state="visible", timeout=10_000
+        )
+        self.page.wait_for_timeout(500)
+        self.page.get_by_role("button", name="Ny familjeuppgift", exact=True).click()
+        self.page.get_by_role("textbox", name="Uppgift", exact=False).wait_for(
+            state="visible", timeout=10_000
+        )
+        self.page.get_by_role("button", name="Avbryt", exact=True).click()
+
+    def test_family_fifty_tasks_fit_mobile_target_widths(self):
+        self.install_family_polish_bridge(task_count=50)
+        self.connect_family_polish_bridge()
+        self.assertEqual(
+            self.page.get_by_role("button", name="Markera", exact=False).count(),
+            50,
+        )
+
+        for width in (320, 390, 412):
+            with self.subTest(width=width):
+                self.page.set_viewport_size({"width": width, "height": 820})
+                self.page.wait_for_timeout(150)
+                overflow = self.page.evaluate(
+                    "document.documentElement.scrollWidth > document.documentElement.clientWidth"
+                )
+                self.assertFalse(overflow)
+                self.assertTrue(
+                    self.page.get_by_role("tab", name="Senare", exact=True).is_visible()
+                )
+                self.assertTrue(
+                    self.page.get_by_role(
+                        "button", name="Ny familjeuppgift", exact=True
+                    ).is_visible()
+                )

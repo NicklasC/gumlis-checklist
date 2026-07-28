@@ -44,6 +44,14 @@ class DeployScriptContractTests(unittest.TestCase):
         self.assertIn('filename.endswith((".symbols", ".map"))', self.script)
         self.assertIn('relative_path == "assets/NOTICES"', self.script)
 
+    def test_prunes_generated_python_bytecode_before_packaging(self):
+        self.assertIn("def prune_source_python_caches", self.script)
+        self.assertIn('dirname == "__pycache__"', self.script)
+        self.assertIn('filename.endswith((".pyc", ".pyo"))', self.script)
+        prune_call = self.script.index('prune_source_python_caches(os.path.join(source_dir, "src"))')
+        publish_call = self.script.index("run_command(publish_cmd, cwd=source_dir)")
+        self.assertLess(prune_call, publish_call)
+
     def test_bridges_worker_startup_marks_to_main_page(self):
         self.assertIn("add_python_startup_bridge", self.script)
         self.assertIn("__gumli_startup__:", self.script)

@@ -15,17 +15,21 @@ Följande värden konfigureras i Apps Script-projektets inställningar och får 
 ## Genomförbarhetstest
 
 1. Lägg in Script Properties.
-2. Kör `verifyConfiguration` i editorn.
-3. Kör `setupProbeSheet` för att skapa bladet `Tekniskt test`.
+2. Kör `verifyConfiguration_` i editorn.
+3. Kör `setupProbeSheet_` för att skapa bladet `Tekniskt test`.
 4. Dela endast familjearket med servicekontots e-postadress som redigerare.
 5. Distribuera som webbapp som körs som den användare som distribuerar och tillåter anonym åtkomst.
 6. Testa `ping`, `probeWrite` och `probeRead` med rätt och fel enhetsnyckel.
 
 ## Familj version 1
 
-`setupFamilySheets` skapar den produktionsnära strukturen med ett statusbaserat blad
+`setupFamilySheets_` skapar den produktionsnära strukturen med ett statusbaserat blad
 `Uppgifter` samt bladen `Medlemmar` och `Favoriter`. Funktionen ska bara köras i det
 redan beslutade privata arket `gumlis-checklist-familj`.
+
+Det avslutande understrecket i editorfunktionernas namn är avsiktligt. Apps Script
+gör därmed funktionerna privata för `google.script.run`, samtidigt som Nicklas kan
+köra dem manuellt från Apps Script-editorn.
 
 API-kontraktet består av:
 
@@ -52,6 +56,12 @@ enhetsnyckeln, uppdaterar auditfälten och returnerar senaste rad vid
 `VERSION_CONFLICT`; klienten skickar aldrig ett valbart medlemsnamn som aktör.
 
 `doPost` finns för ett direkt CORS-test. `doGet` levererar en iframe-brygga som använder `google.script.run` om direkt browser-POST inte fungerar. Enhetsnyckeln skickas i requestens body eller `postMessage`, aldrig i URL:en.
+
+Bryggan och PWA:n använder samma nonce-baserade protokoll och ska därför distribueras
+som ett samordnat säkerhetssläpp. Skapa ett nytt Apps Script deployment-ID, publicera
+PWA:n med den nya adressen och stäng den gamla deploymenten först när anslutna enheter
+har hämtat den nya klienten. Blanda inte den nya PWA:n med den gamla bryggan eller
+tvärtom.
 
 ## Google-behörighet och faktisk avgränsning
 

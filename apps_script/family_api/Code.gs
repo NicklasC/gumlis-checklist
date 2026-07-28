@@ -26,13 +26,24 @@ const TASK_HEADERS = Object.freeze([
 const SHEETS_API_ROOT = "https://sheets.googleapis.com/v4/spreadsheets/";
 const TOKEN_CACHE_KEY = "gumli-service-account-token-v1";
 
-function doGet() {
+function doGet(event) {
+  const bridgeNonce = normalizeBridgeNonce_(event?.parameter?.bridgeNonce);
+  if (!bridgeNonce) {
+    return HtmlService.createHtmlOutput("Invalid bridge request");
+  }
+
   const template = HtmlService.createTemplateFromFile("Bridge");
   template.allowedOriginsJson = JSON.stringify(getAllowedOrigins_());
+  template.bridgeNonceJson = JSON.stringify(bridgeNonce);
   return template
     .evaluate()
     .setTitle("Gumli Familj API")
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+function normalizeBridgeNonce_(value) {
+  const nonce = String(value || "").trim();
+  return /^[a-f0-9]{64}$/.test(nonce) ? nonce : "";
 }
 
 function doPost(event) {
@@ -118,7 +129,7 @@ function apiError_(code, data) {
   return error;
 }
 
-function setupProbeSheet() {
+function setupProbeSheet_() {
   const metadata = sheetsRequest_("?fields=sheets.properties.title", { method: "get" });
   const exists = (metadata.sheets || []).some(function (sheet) {
     return sheet?.properties?.title === PROBE_SHEET_NAME;
@@ -143,7 +154,7 @@ function setupProbeSheet() {
   return { ok: true, sheet: PROBE_SHEET_NAME };
 }
 
-function setupFamilySheets() {
+function setupFamilySheets_() {
   ensureSheetsExist_([TASKS_SHEET_NAME, MEMBERS_SHEET_NAME, FAVORITES_SHEET_NAME]);
   writeValues_("'" + TASKS_SHEET_NAME + "'!A1:N1", [TASK_HEADERS]);
   writeValues_("'" + MEMBERS_SHEET_NAME + "'!A1:C5", [
@@ -632,7 +643,7 @@ function nonNegativeInteger_(value) {
   return parsed;
 }
 
-function verifyConfiguration() {
+function verifyConfiguration_() {
   const properties = PropertiesService.getScriptProperties();
   const missing = [
     CONFIG_KEYS.spreadsheetId,

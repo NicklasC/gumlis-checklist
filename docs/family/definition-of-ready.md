@@ -580,6 +580,12 @@ Stabila felkoder omfattar minst:
 - Ingen enhetsnyckel förekommer i URL, logg eller felmeddelande.
 - Sheet-ID, servicekontonyckel och hashade enhetsnycklar lagras i Apps Script-konfiguration.
 - Enhetsanslutningen lagras lokalt i PWA:ns ursprungsskyddade lagring.
+- Editoradministration i Apps Script är privat för `google.script.run` och kan bara
+  köras manuellt av en behörig scriptredigerare.
+- PWA:n binder Apps Script-bryggan med en ny 256-bitars nonce per iframe, strikt
+  sandbox-origin och exakt svarsfönster.
+- Familjebryggan startar inte i en inbäddad Gumli-sida, och ett timeoutat anrop får
+  aldrig skickas i efterhand.
 - Fel nyckel och saknad nyckel ger inget familjeinnehåll.
 - Varje enhetsnyckel kan spärras eller roteras separat.
 - Rotation kräver endast omanslutning av den berörda enheten.

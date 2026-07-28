@@ -60,6 +60,11 @@ class FamilyFavoritesView(ft.Container):
         self._creating_favorite_id: str | None = None
         self._pending_create_ids: dict[str, str] = {}
         self.status_text = ft.Text("", size=11, color=TEXT_MUTED)
+        self.retry_button = ft.TextButton(
+            content=ft.Text("Försök igen", size=11),
+            on_click=self._retry,
+            visible=False,
+        )
         self.list_container = ft.Column(scroll=ft.ScrollMode.AUTO, spacing=6, expand=True)
         super().__init__(
             *args,
@@ -80,7 +85,11 @@ class FamilyFavoritesView(ft.Container):
                                 spacing=1,
                                 tight=True,
                             ),
-                            self.status_text,
+                            ft.Row(
+                                controls=[self.status_text, self.retry_button],
+                                spacing=4,
+                                tight=True,
+                            ),
                         ],
                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     ),
@@ -101,16 +110,40 @@ class FamilyFavoritesView(ft.Container):
         self.page.run_task(self._sync)
 
     async def _sync(self):
+        self._set_retry_visible(False)
         self._set_status("Laddar …", TEXT_MUTED)
         try:
             bootstrap = self.bootstrap_provider.bootstrap
-            if bootstrap is None:
+            if bootstrap is None or not self._mutations_enabled():
                 bootstrap = await self.repository.bootstrap()
+                self._set_provider_mutations(True)
                 self.bootstrap_provider._set_bootstrap(bootstrap)
             self._render_favorites()
+            self._sync_running = False
             self._set_status("Synkad nyss", MINT_GREEN)
+        except PermissionError as error:
+            self._sync_running = False
+            try:
+                await self.repository.clear_bootstrap_cache()
+            except Exception:
+                pass
+            if hasattr(self.bootstrap_provider, "_clear_bootstrap"):
+                self.bootstrap_provider._clear_bootstrap()
+            self._set_provider_mutations(False)
+            self._render_favorites()
+            self._set_status(str(error), "#F87171")
+            self._set_retry_visible(True)
         except Exception:
-            self._set_status("Kunde inte synka Familj", "#F87171")
+            self._sync_running = False
+            self._set_provider_mutations(False)
+            self._render_favorites()
+            self._set_status(
+                "Offline – visar sparad data"
+                if self.bootstrap_provider.bootstrap is not None
+                else "Kunde inte synka Familj",
+                "#F87171",
+            )
+            self._set_retry_visible(True)
         finally:
             self._sync_running = False
             self._safe_update()
@@ -133,7 +166,10 @@ class FamilyFavoritesView(ft.Container):
                 FamilyFavoriteButton(
                     favorite,
                     self._start_create,
-                    disabled=self._creating_favorite_id is not None,
+                    disabled=(
+                        self._creating_favorite_id is not None
+                        or not self._mutations_enabled()
+                    ),
                 )
                 for favorite in favorites
             ]
@@ -144,7 +180,7 @@ class FamilyFavoritesView(ft.Container):
             page = self.page
         except RuntimeError:
             return
-        if self._creating_favorite_id is not None:
+        if self._creating_favorite_id is not None or not self._mutations_enabled():
             return
         self._creating_favorite_id = favorite.id
         self._render_favorites()
@@ -166,7 +202,21 @@ class FamilyFavoritesView(ft.Container):
             self._pending_create_ids.pop(favorite.id, None)
             self._set_status("Synkad nyss", MINT_GREEN)
             self._show_confirmation(saved)
-        except (ValueError, PermissionError, LookupError, TimeoutError) as error:
+        except PermissionError as error:
+            try:
+                await self.repository.clear_bootstrap_cache()
+            except Exception:
+                pass
+            if hasattr(self.bootstrap_provider, "_clear_bootstrap"):
+                self.bootstrap_provider._clear_bootstrap()
+            self._set_provider_mutations(False)
+            self._set_retry_visible(True)
+            self._set_status(str(error), "#F87171")
+        except (TimeoutError, ConnectionError):
+            self._set_provider_mutations(False)
+            self._set_retry_visible(True)
+            self._set_status("Offline – uppgiften lades inte till", "#F87171")
+        except (ValueError, LookupError) as error:
             self._set_status(str(error), "#F87171")
         except Exception:
             self._set_status("Kunde inte lägga till uppgiften. Försök igen.", "#F87171")
@@ -199,6 +249,23 @@ class FamilyFavoritesView(ft.Container):
         self.status_text.value = value
         self.status_text.color = color
         self._safe_update()
+
+    def _mutations_enabled(self) -> bool:
+        return bool(getattr(self.bootstrap_provider, "mutations_enabled", True))
+
+    def _set_provider_mutations(self, enabled: bool) -> None:
+        setter = getattr(self.bootstrap_provider, "_set_mutations_enabled", None)
+        if setter is not None:
+            setter(enabled)
+        else:
+            self.bootstrap_provider.mutations_enabled = enabled
+
+    def _set_retry_visible(self, visible: bool) -> None:
+        self.retry_button.visible = visible
+        self._safe_update()
+
+    def _retry(self, _event=None) -> None:
+        self.activate()
 
     def _safe_update(self):
         try:

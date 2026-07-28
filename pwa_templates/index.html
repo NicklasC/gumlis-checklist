@@ -57,8 +57,10 @@
       let frame = null;
       let bridgeWindow = null;
       let bridgeOrigin = null;
+      let bridgeNonce = null;
       let readyPromise = null;
       let resolveReady = null;
+      let rejectReady = null;
       const pending = new Map();
       const debug = {
         frameCreated: false,
@@ -73,11 +75,58 @@
       };
       publishDebug();
 
+      const createBridgeNonce = () => {
+        const bytes = crypto.getRandomValues(new Uint8Array(32));
+        return Array.from(
+          bytes,
+          byte => byte.toString(16).padStart(2, '0')
+        ).join('');
+      };
+
+      const isTrustedAppsScriptSandboxOrigin = (origin) => {
+        try {
+          const parsedOrigin = new URL(origin);
+          return (
+            parsedOrigin.protocol === 'https:' &&
+            parsedOrigin.port === '' &&
+            /^[a-z0-9-]+-script\.googleusercontent\.com$/.test(parsedOrigin.hostname)
+          );
+        } catch (_error) {
+          return false;
+        }
+      };
+
+      const resetUnreadyFrame = () => {
+        const reject = rejectReady;
+        frame?.remove();
+        frame = null;
+        bridgeWindow = null;
+        bridgeOrigin = null;
+        bridgeNonce = null;
+        readyPromise = null;
+        resolveReady = null;
+        rejectReady = null;
+        debug.frameCreated = false;
+        debug.frameLoaded = false;
+        debug.ready = false;
+        publishDebug();
+        reject?.(new Error('Family bridge handshake reset'));
+      };
+
       const ensureFrame = () => {
         if (readyPromise) return readyPromise;
-        readyPromise = new Promise((resolve) => { resolveReady = resolve; });
+        if (window.top !== window.self) {
+          throw new Error('Embedded Family bridge is not allowed');
+        }
+        bridgeNonce = createBridgeNonce();
+        readyPromise = new Promise((resolve, reject) => {
+          resolveReady = resolve;
+          rejectReady = reject;
+        });
         frame = document.createElement('iframe');
-        frame.src = apiUrl;
+        const frameUrl = new URL(apiUrl);
+        frameUrl.searchParams.set('bridgeNonce', bridgeNonce);
+        frame.src = frameUrl.toString();
         frame.title = 'Gumli Familj API';
         frame.hidden = true;
         frame.setAttribute('aria-hidden', 'true');
@@ -94,22 +143,27 @@
       window.addEventListener('message', (event) => {
         const message = event.data;
         if (message?.type === 'gumli-family-ready') {
-          const trustedGoogleOrigin =
-            event.origin === 'https://script.google.com' ||
-            event.origin.endsWith('.googleusercontent.com');
-          if (!frame || bridgeWindow || !trustedGoogleOrigin) return;
+          if (
+            !frame ||
+            bridgeWindow ||
+            !event.source ||
+            message.bridgeNonce !== bridgeNonce ||
+            !isTrustedAppsScriptSandboxOrigin(event.origin)
+          ) return;
           bridgeWindow = event.source;
           bridgeOrigin = event.origin;
           debug.ready = true;
           publishDebug();
           resolveReady?.();
           resolveReady = null;
+          rejectReady = null;
           return;
         }
         if (
           message?.type !== 'gumli-family-response' ||
           event.source !== bridgeWindow ||
-          event.origin !== bridgeOrigin
+          event.origin !== bridgeOrigin ||
+          message.bridgeNonce !== bridgeNonce
         ) return;
         debug.lastResponse = {
           ok: Boolean(message.response?.ok),
@@ -127,10 +181,13 @@
       window.gumliFamilyBridge = {
         async forward(message, worker) {
           const timeout = setTimeout(() => {
+            const request = pending.get(message.requestId);
+            if (!request) return;
             pending.delete(message.requestId);
+            if (!bridgeWindow && pending.size === 0) resetUnreadyFrame();
             debug.lastError = 'TIMEOUT';
             publishDebug();
-            worker.postMessage({
+            request.worker.postMessage({
               type: 'gumli-family-response',
               requestId: message.requestId,
               response: { ok: false, error: 'TIMEOUT' }
@@ -139,17 +196,21 @@
           pending.set(message.requestId, { worker, timeout });
           try {
             await ensureFrame();
+            if (!pending.has(message.requestId)) return;
             bridgeWindow.postMessage({
               type: 'gumli-family-request',
+              bridgeNonce,
               requestId: message.requestId,
               payload: message.payload
             }, bridgeOrigin);
           } catch (_error) {
-            clearTimeout(timeout);
+            const request = pending.get(message.requestId);
+            if (!request) return;
+            clearTimeout(request.timeout);
             pending.delete(message.requestId);
             debug.lastError = 'BRIDGE_ERROR';
             publishDebug();
-            worker.postMessage({
+            request.worker.postMessage({
               type: 'gumli-family-response',
               requestId: message.requestId,
               response: { ok: false, error: 'BRIDGE_ERROR' }

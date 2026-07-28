@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import re
 import unittest
 
 
@@ -42,6 +43,24 @@ class FamilyAppsScriptTests(unittest.TestCase):
         rejection = self.code.index('failureResponse_("UNAUTHORIZED"')
         dispatch = self.code.index("switch (request.action)")
         self.assertLess(rejection, dispatch)
+
+    def test_only_authenticated_web_entrypoints_are_public(self):
+        functions = set(
+            re.findall(
+                r"^function\s+([A-Za-z0-9_$]+)\s*\(",
+                self.code,
+                re.MULTILINE,
+            )
+        )
+        public_functions = {name for name in functions if not name.endswith("_")}
+
+        self.assertEqual(public_functions, {"doGet", "doPost", "handleRequest"})
+        for name in (
+            "setupProbeSheet_",
+            "setupFamilySheets_",
+            "verifyConfiguration_",
+        ):
+            self.assertIn(name, functions)
 
     def test_supports_ping_bootstrap_later_history_and_probe_operations(self):
         self.assertIn('case "ping"', self.code)
@@ -140,7 +159,7 @@ class FamilyAppsScriptTests(unittest.TestCase):
         self.assertIn(".trim().toLowerCase()", self.code)
 
     def test_setup_uses_single_status_based_tasks_sheet(self):
-        self.assertIn("function setupFamilySheets()", self.code)
+        self.assertIn("function setupFamilySheets_()", self.code)
         self.assertIn('TASKS_SHEET_NAME = "Uppgifter"', self.code)
         self.assertIn('"Status"', self.code)
         self.assertNotIn('TASKS_SHEET_NAME = "Aktiva"', self.code)
@@ -152,7 +171,7 @@ class FamilyAppsScriptTests(unittest.TestCase):
 
     def test_probe_sheet_is_separate_from_family_tasks(self):
         self.assertIn('PROBE_SHEET_NAME = "Tekniskt test"', self.code)
-        self.assertIn("setupProbeSheet", self.code)
+        self.assertIn("function setupProbeSheet_()", self.code)
 
     def test_direct_post_returns_json_without_putting_key_in_url(self):
         self.assertIn("function doPost(event)", self.code)
@@ -161,9 +180,26 @@ class FamilyAppsScriptTests(unittest.TestCase):
 
     def test_bridge_restricts_parent_origin_and_targets_reply_origin(self):
         self.assertIn("allowedOrigins.has(event.origin)", self.bridge)
+        self.assertIn("event.source !== window.top", self.bridge)
         self.assertIn("event.source?.postMessage", self.bridge)
         self.assertIn("}, event.origin);", self.bridge)
         self.assertIn("window.top.postMessage", self.bridge)
+
+    def test_bridge_requires_a_validated_client_nonce(self):
+        self.assertIn("function doGet(event)", self.code)
+        self.assertIn("normalizeBridgeNonce_(event?.parameter?.bridgeNonce)", self.code)
+        self.assertIn("/^[a-f0-9]{64}$/", self.code)
+        self.assertIn("template.bridgeNonceJson", self.code)
+        self.assertIn("const bridgeNonce = <?!= bridgeNonceJson ?>;", self.bridge)
+        self.assertIn("message.bridgeNonce !== bridgeNonce", self.bridge)
+
+    def test_bridge_ready_signal_never_uses_a_wildcard_target(self):
+        self.assertIn("for (const origin of allowedOrigins)", self.bridge)
+        self.assertIn("}, origin);", self.bridge)
+        self.assertNotIn(
+            "window.top.postMessage({ type: 'gumli-family-ready' }, '*')",
+            self.bridge,
+        )
 
     def test_manifest_runs_as_owner_and_allows_anonymous_web_app_calls(self):
         self.assertEqual(self.manifest["webapp"]["executeAs"], "USER_DEPLOYING")

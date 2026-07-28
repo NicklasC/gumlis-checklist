@@ -46,6 +46,16 @@ class FamilyConnectionViewTests(unittest.IsolatedAsyncioTestCase):
         await view._resume()
         self.assertEqual(view.status_text.value, "Ansluten som Ida")
 
+    async def test_revoked_key_clears_local_family_state_and_shows_exact_error(self):
+        view, repository = self.make_view()
+        repository.resume.side_effect = PermissionError("Enhetsnyckeln känns inte igen")
+
+        await view._resume()
+
+        repository.disconnect.assert_awaited_once()
+        self.assertEqual(view.status_text.value, "Enhetsnyckeln känns inte igen")
+        self.assertTrue(view.token_field.visible)
+
     async def test_disconnect_returns_to_connection_form(self):
         view, repository = self.make_view()
         view._show_connected("Thor")

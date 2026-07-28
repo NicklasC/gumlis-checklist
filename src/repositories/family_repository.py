@@ -25,6 +25,7 @@ SaveConnection = Callable[[str], Awaitable[None]]
 DeleteConnection = Callable[[], Awaitable[None]]
 LoadBootstrapCache = Callable[[], Awaitable[Optional[str]]]
 SaveBootstrapCache = Callable[[str], Awaitable[None]]
+DeleteBootstrapCache = Callable[[], Awaitable[None]]
 
 
 class FamilyVersionConflict(RuntimeError):
@@ -44,6 +45,7 @@ class FamilyRepository:
         delete_connection: DeleteConnection,
         load_bootstrap_cache: Optional[LoadBootstrapCache] = None,
         save_bootstrap_cache: Optional[SaveBootstrapCache] = None,
+        delete_bootstrap_cache: Optional[DeleteBootstrapCache] = None,
     ):
         self._transport = transport
         self._load_connection = load_connection
@@ -51,6 +53,7 @@ class FamilyRepository:
         self._delete_connection = delete_connection
         self._load_bootstrap_cache = load_bootstrap_cache
         self._save_bootstrap_cache = save_bootstrap_cache
+        self._delete_bootstrap_cache = delete_bootstrap_cache
 
     @classmethod
     def web_default(cls) -> "FamilyRepository":
@@ -63,6 +66,7 @@ class FamilyRepository:
             delete_connection=browser_storage.delete_family_connection,
             load_bootstrap_cache=browser_storage.read_family_bootstrap,
             save_bootstrap_cache=browser_storage.write_family_bootstrap,
+            delete_bootstrap_cache=browser_storage.delete_family_bootstrap,
         )
 
     async def connect(self, device_token: str) -> FamilyConnection:
@@ -273,6 +277,12 @@ class FamilyRepository:
 
     async def disconnect(self) -> None:
         await self._delete_connection()
+        await self.clear_bootstrap_cache()
+
+    async def clear_bootstrap_cache(self) -> None:
+        if self._delete_bootstrap_cache is None:
+            return
+        await self._delete_bootstrap_cache()
 
     async def _save(self, connection: FamilyConnection) -> None:
         await self._save_connection(

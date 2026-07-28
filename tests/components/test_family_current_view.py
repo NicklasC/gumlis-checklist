@@ -147,6 +147,7 @@ class FamilyCurrentMutationTests(unittest.IsolatedAsyncioTestCase):
         repository = repository or MagicMock()
         repository.cache_bootstrap = AsyncMock()
         view = FamilyCurrentView(repository=repository, member="Nicklas")
+        view._set_mutations_enabled(True)
         view._set_bootstrap(
             FamilyBootstrap(
                 tasks=[],
@@ -234,3 +235,75 @@ class FamilyCurrentMutationTests(unittest.IsolatedAsyncioTestCase):
         repository.cache_bootstrap.assert_awaited_once()
         self.assertEqual(view.bootstrap.tasks, [])
         self.assertEqual(view.status_text.value, "Uppgiften slutförd")
+
+
+class FamilyCurrentSyncTests(unittest.IsolatedAsyncioTestCase):
+    @staticmethod
+    def bootstrap(task_count=1):
+        return FamilyBootstrap(
+            tasks=[make_task(f"task-{index}", f"Uppgift {index}") for index in range(task_count)],
+            members=[FamilyMember(name="Nicklas", active=True, sort_order=1)],
+            favorites=[],
+            server_time=datetime(2026, 7, 22, 12, 0, tzinfo=timezone.utc),
+        )
+
+    async def test_offline_cache_is_visible_but_all_mutations_are_blocked(self):
+        cached = self.bootstrap()
+        repository = MagicMock()
+        repository.cached_bootstrap = AsyncMock(return_value=cached)
+        repository.bootstrap = AsyncMock(side_effect=ConnectionError("offline"))
+        view = FamilyCurrentView(repository, "Nicklas")
+
+        await view._sync()
+
+        self.assertIs(view.bootstrap, cached)
+        self.assertEqual(view.status_text.value, "Offline – visar sparad data")
+        self.assertTrue(view.retry_button.visible)
+        self.assertFalse(view.mutations_enabled)
+        self.assertEqual(
+            view._create_icon_button.tooltip,
+            "Synka Familj för att göra ändringar",
+        )
+        self.assertFalse(view.list_container.controls[0].complete_button.visible)
+
+    async def test_successful_retry_reenables_mutations_and_hides_retry(self):
+        live = self.bootstrap()
+        repository = MagicMock()
+        repository.cached_bootstrap = AsyncMock(return_value=None)
+        repository.bootstrap = AsyncMock(return_value=live)
+        view = FamilyCurrentView(repository, "Nicklas")
+        view.retry_button.visible = True
+
+        await view._sync()
+
+        self.assertTrue(view.mutations_enabled)
+        self.assertEqual(view._create_icon_button.tooltip, "Ny familjeuppgift")
+        self.assertFalse(view.retry_button.visible)
+        self.assertEqual(view.status_text.value, "Synkad nyss")
+
+    async def test_revoked_key_removes_cached_content_from_the_view(self):
+        cached = self.bootstrap()
+        repository = MagicMock()
+        repository.cached_bootstrap = AsyncMock(return_value=cached)
+        repository.bootstrap = AsyncMock(
+            side_effect=PermissionError("Enhetsnyckeln känns inte igen")
+        )
+        repository.clear_bootstrap_cache = AsyncMock()
+        view = FamilyCurrentView(repository, "Nicklas")
+
+        await view._sync()
+
+        repository.clear_bootstrap_cache.assert_awaited_once()
+        self.assertIsNone(view.bootstrap)
+        self.assertEqual(view.status_text.value, "Enhetsnyckeln känns inte igen")
+        self.assertTrue(view.retry_button.visible)
+        self.assertEqual(view.list_container.controls[0].value, "Inga familjeuppgifter i Aktuell")
+
+    def test_current_list_renders_fifty_tasks_without_truncation(self):
+        view = FamilyCurrentView(repository=None, member="Nicklas")
+        view._set_mutations_enabled(True)
+
+        view._set_bootstrap(self.bootstrap(task_count=50))
+
+        self.assertEqual(len(view.list_container.controls), 50)
+        self.assertEqual(view.filter_row.controls[0].content.value, "Alla (50)")

@@ -49,6 +49,12 @@ class BuildOutputTests(unittest.TestCase):
         html = (DEPLOY_APP / "index.html").read_text(encoding="utf-8")
         self.assertRegex(html, r'appPackageUrl: "app\.tar\.gz\?build=[0-9a-f]{16}"')
 
+    def test_built_family_bridge_uses_authenticated_nonce_handshake(self):
+        html = (DEPLOY_APP / "index.html").read_text(encoding="utf-8")
+        self.assertIn("crypto.getRandomValues(new Uint8Array(32))", html)
+        self.assertIn("message.bridgeNonce !== bridgeNonce", html)
+        self.assertNotIn("event.origin.endsWith('.googleusercontent.com')", html)
+
     def test_built_icons_directory_exists(self):
         self.assertTrue((DEPLOY_APP / "icons").is_dir())
 

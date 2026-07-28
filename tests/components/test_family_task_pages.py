@@ -15,6 +15,27 @@ from src.views.family_task_page import FamilyHistoryView, FamilyLaterView
 
 
 class FamilyTaskPageTests(unittest.IsolatedAsyncioTestCase):
+    @staticmethod
+    def later_task():
+        return FamilyTask.model_validate(
+            {
+                "id": "later-offline",
+                "title": "Sparad senareuppgift",
+                "status": "Senare",
+                "assignee": "Alla",
+                "assigned_by": "Nicklas",
+                "assigned_at": "2026-07-20T10:00:00+00:00",
+                "created_by": "Nicklas",
+                "created_at": "2026-07-20T10:00:00+00:00",
+                "deadline": None,
+                "updated_by": "Nicklas",
+                "updated_at": "2026-07-20T10:00:00+00:00",
+                "completed_by": None,
+                "completed_at": None,
+                "version": 1,
+            }
+        )
+
     def page(self, title="Familj – Senare"):
         repository = MagicMock()
         repository.list_later = AsyncMock(
@@ -49,6 +70,33 @@ class FamilyTaskPageTests(unittest.IsolatedAsyncioTestCase):
         repository.list_history.assert_awaited_once()
         self.assertEqual(view.list_container.controls[0].value, "Ingen familjehistorik de senaste 14 dagarna")
 
+    async def test_offline_later_page_keeps_previous_data_read_only_and_offers_retry(self):
+        view, repository = self.page()
+        task = self.later_task()
+        view.task_page = FamilyTaskPage(
+            tasks=[task],
+            invalid_rows=[],
+            server_time=datetime(2026, 7, 20, 12, 0, tzinfo=timezone.utc),
+        )
+        view._set_mutations_enabled(True)
+        repository.list_later.side_effect = ConnectionError("offline")
+
+        await view._sync()
+
+        self.assertEqual(view.status_text.value, "Offline – visar tidigare data")
+        self.assertTrue(view.retry_button.visible)
+        self.assertFalse(view.mutations_enabled)
+        self.assertFalse(view.list_container.controls[0].complete_button.visible)
+
+    async def test_successful_later_retry_reenables_mutations(self):
+        view, _ = self.page()
+        view.retry_button.visible = True
+
+        await view._sync()
+
+        self.assertTrue(view.mutations_enabled)
+        self.assertFalse(view.retry_button.visible)
+
     async def test_favorites_page_renders_active_favorites_in_sheet_order(self):
         provider = SimpleNamespace(
             bootstrap=SimpleNamespace(
@@ -68,6 +116,24 @@ class FamilyTaskPageTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertTrue(all(isinstance(control, FamilyFavoriteButton) for control in view.list_container.controls))
         self.assertEqual(view.list_container.controls[0].label, "Lägg till Töm soporna för Alla")
+
+    async def test_offline_favorites_are_visible_but_disabled_and_retryable(self):
+        favorite = FamilyFavorite(id="f1", title="Töm soporna", active=True, sort_order=1)
+        provider = SimpleNamespace(
+            bootstrap=SimpleNamespace(favorites=[favorite]),
+            mutations_enabled=False,
+            _set_bootstrap=MagicMock(),
+            _set_mutations_enabled=MagicMock(),
+        )
+        repository = MagicMock()
+        repository.bootstrap = AsyncMock(side_effect=ConnectionError("offline"))
+        view = FamilyFavoritesView(repository, "Nicklas", provider)
+
+        await view._sync()
+
+        self.assertEqual(view.status_text.value, "Offline – visar sparad data")
+        self.assertTrue(view.retry_button.visible)
+        self.assertTrue(view.list_container.controls[0].action.disabled)
 
     async def test_later_page_edits_active_task_in_place(self):
         view, repository = self.page()

@@ -91,3 +91,14 @@ class FamilyTaskEditorTests(unittest.IsolatedAsyncioTestCase):
         callback.assert_not_awaited()
         self.assertTrue(editor.error_text.visible)
         self.assertEqual(editor.error_text.value, "Deadline ska anges som ÅÅÅÅ-MM-DD")
+
+    def test_offline_lock_blocks_mutations_but_keeps_cancel_available(self):
+        editor = FamilyTaskEditor(AsyncMock())
+        editor.prepare()
+
+        editor.set_available(False)
+
+        self.assertTrue(editor.save_button.disabled)
+        self.assertTrue(editor.move_button.disabled)
+        self.assertTrue(editor.delete_button.disabled)
+        self.assertFalse(editor.cancel_button.disabled)
