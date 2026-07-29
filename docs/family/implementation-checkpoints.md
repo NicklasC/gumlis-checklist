@@ -195,9 +195,10 @@ Apps Script-operation eller distribution krävdes; befintlig version 10 och
       intermittenta dialoglivscykeln vid radering; den bakomliggande ordningen är korrigerad.
 - [x] Raderingsflödet är godkänt fem gånger i följd mot slutbyggnaden.
 - [x] Hela sviten är godkänd med 424 av 424 tester.
-- [ ] Publicera och verifiera lokal slutbuild `af1a5abd76395548` live tillsammans
+- [x] Slutbuild `af1a5abd76395548` är publicerad och verifierad live tillsammans
       med den nya Apps Script-deploymenten.
-- [ ] Verifiera den verkliga Google-sandbox-originen och att en avsiktligt felaktig
+- [x] Den verkliga Google-sandbox-originen matchar den strikta
+      `*-script.googleusercontent.com`-regeln och en avsiktligt felaktig
       testnyckel ger `UNAUTHORIZED` genom den nya produktionsbryggan.
 - [ ] Bekräfta att anslutna telefoner har hämtat den nya PWA:n och stäng därefter
       den gamla sårbara Apps Script-deploymenten.
