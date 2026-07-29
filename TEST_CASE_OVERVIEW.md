@@ -15,10 +15,10 @@ Målet med dokumentet är att en människa snabbt och enkelt ska få en övergri
 | Område | Antal | Innehåll |
 |---|---:|---|
 | Enhetstester | 100 | Datamodeller, lagring, migrering, historikregler och familjeanslutning |
-| Komponenttester | 139 | Vyernas och komponenternas logik utan webbläsare |
+| Komponenttester | 140 | Vyernas och komponenternas logik utan webbläsare |
 | PWA- och distributionstester | 106 | Manifest, Apps Script-API, familjebrygga, byggfiler, sidmallar och de två repona |
 | GUI/E2E-tester | 85 | Verkliga användarflöden och säkerhetsangrepp i Chromium |
-| **Totalt** | **430** | |
+| **Totalt** | **431** | |
 
 GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den byggda appen och deploy-repot finns lokalt; annars markeras de som överhoppade.
 
@@ -235,7 +235,8 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | Testfall | Vad testet kontrollerar |
 |---|---|
 | `test_create_form_defaults_to_all_and_uses_clear_labels` | Ny uppgift använder tydliga etiketter och Alla som standardansvarig. |
-| `test_assignee_selector_exposes_all_household_choices` | Formuläret visar Alla, Nicklas, Ida, Thor och Johanna som direkt tryckbara ansvarigval. |
+| `test_assignee_selector_exposes_all_household_choices` | Formuläret visar Alla, Nicklas, Ida, Thor och Johanna som direkt tryckbara val i två responsiva kolumner. |
+| `test_deadline_is_placed_before_the_compact_assignee_grid` | Deadlinefältet ligger före ansvarigvalet, så det hålls högt i den mobila dialogen. |
 | `test_assignee_change_is_kept_in_submitted_draft` | Ett valt namn följer med i uppgiftsutkastet som skickas till servern. |
 | `test_draft_parses_deadline_and_clear_action_removes_it` | Deadline läses som datum och kan tas bort igen. |
 | `test_edit_form_shows_assignment_and_latest_editor` | Redigering visar vem som skapade, tilldelade och senast ändrade uppgiften. |
@@ -511,7 +512,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_all_pages_remain_reachable_after_successful_family_response` | Appen tar emot en lyckad familjerespons, visar en försenad Aktuell-uppgift, filtrerar Mina och går därefter via Privat och Jobb till Checklista, Snabblistan, Historik och Senare. | Familjesvaret får inte låsa gränssnittet; Aktuell-lista, deadline, filter och all befintlig navigation ska fungera. |
 | `test_family_device_key_can_be_entered_and_reveal_control_used` | Användaren skriver en enhetsnyckel och använder fältets ögonknapp utan att nyckeln ändras. | Nyckeln måste gå att mata in och kontrollera visuellt före anslutning. |
 | `test_family_assignee_can_be_set_on_create_and_changed_afterwards` | Användaren skapar en familjeuppgift med Ida som ansvarig, öppnar den igen och ändrar ansvarig till Thor. | Ansvarigvalet måste nå serveranropet och fungera både vid skapande och efterhandsredigering. |
-| `test_family_deadline_stays_visible_when_mobile_keyboard_opens` | Användaren öppnar en befintlig familjeuppgift och fokuserar deadlinefältet när den tillgängliga mobilhöjden minskar som av Androids tangentbord. | Deadlinefältet måste ligga kvar ovanför tangentbordet så att användaren ser vad som skrivs. |
+| `test_family_deadline_sits_above_mobile_keyboard_overlay` | Användaren öppnar en befintlig familjeuppgift, ser ansvariga i två kolumner och fokuserar deadlinefältet i mobilstorlek där Androids tangentbord kan överlappa appens nedre del. | Deadlinefältet måste redan ligga ovanför tangentbordets förväntade överkant och får inte vara beroende av att Flutter ändrar viewportens höjd. |
 | `test_family_task_can_be_created_and_edited` | Användaren ansluter Familj, skapar en uppgift med deadline, ser auditinformation och fortsätter genom redigering, flytt, radering, slutförande och Snabblistan. | Hela skrivflödet och dess tillgängliga mobilkontroller måste fungera tillsammans. |
 | `test_boot_has_no_console_errors` | Appen öppnas och fungerar utan fel under starten. | Dolda startfel kan annars ge tom sida eller trasiga funktioner senare. |
 

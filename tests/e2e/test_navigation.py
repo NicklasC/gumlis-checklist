@@ -401,7 +401,7 @@ class NavigationTests(BrowserTestCase):
         self.assertIn("Ansvarig: Thor", updated_task.inner_text())
         self.assertNotIn("Ansvarig: Ida", updated_task.inner_text())
 
-    def test_family_deadline_stays_visible_when_mobile_keyboard_opens(self):
+    def test_family_deadline_sits_above_mobile_keyboard_overlay(self):
         self.install_family_polish_bridge()
         self.connect_family_polish_bridge()
 
@@ -412,22 +412,24 @@ class NavigationTests(BrowserTestCase):
         deadline.wait_for(state="visible", timeout=10_000)
         deadline.click()
 
-        # A real Android keyboard shrinks both viewports because index.html opts
-        # into interactive-widget=resizes-content. Reproduce that smaller app
-        # area here and verify Flutter keeps the focused field above it.
-        self.page.set_viewport_size({"width": 410, "height": 480})
-        self.page.wait_for_timeout(500)
+        all_box = self.page.get_by_role("radio", name="Alla", exact=True).bounding_box()
+        nicklas_box = self.page.get_by_role(
+            "radio", name="Nicklas", exact=True
+        ).bounding_box()
+        self.assertIsNotNone(all_box)
+        self.assertIsNotNone(nicklas_box)
+        self.assertLessEqual(abs(all_box["y"] - nicklas_box["y"]), 4)
+        self.assertGreater(nicklas_box["x"], all_box["x"])
 
-        viewport_content = self.page.locator('meta[name="viewport"]').get_attribute(
-            "content"
-        )
-        self.assertIn("interactive-widget=resizes-content", viewport_content)
+        # Some installed Android PWAs keep the Flutter canvas at full height
+        # and let the keyboard overlap its lower part. The deadline therefore
+        # needs to sit above the expected keyboard edge before it opens.
         field_box = deadline.bounding_box()
         self.assertIsNotNone(field_box)
         self.assertGreaterEqual(field_box["y"], 0)
         self.assertLessEqual(
             field_box["y"] + field_box["height"],
-            self.page.evaluate("window.innerHeight"),
+            self.page.evaluate("window.innerHeight * 0.58"),
         )
 
     def test_family_task_can_be_created_and_edited(self):

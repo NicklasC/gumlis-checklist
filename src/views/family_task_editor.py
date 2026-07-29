@@ -39,19 +39,20 @@ class FamilyTaskEditor(ft.AlertDialog):
         self.assignee_field = ft.RadioGroup(
             value="Alla",
             on_change=self._assignee_changed,
-            content=ft.Row(
+            content=ft.ResponsiveRow(
                 controls=[
                     ft.Radio(
                         value=name,
                         label=name,
                         active_color=MINT_GREEN,
                         label_style=ft.TextStyle(color=TEXT_PRIMARY, size=13),
+                        col=6,
                     )
                     for name in FAMILY_ASSIGNEES
                 ],
-                spacing=6,
+                columns=12,
+                spacing=0,
                 run_spacing=0,
-                wrap=True,
             ),
         )
         self.assignee_selector = ft.Container(
@@ -79,6 +80,10 @@ class FamilyTaskEditor(ft.AlertDialog):
             icon_color=TEXT_MUTED,
             on_click=self._clear_deadline,
         )
+        self.deadline_row = ft.Row(
+            controls=[self.deadline_field, self.clear_deadline_button],
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
         self.audit_text = ft.Text("", size=11, color=TEXT_MUTED, visible=False)
         self.error_text = ft.Text("", size=12, color="#F87171", visible=False)
         self.cancel_button = ft.TextButton(content=ft.Text("Avbryt"), on_click=self._cancel)
@@ -102,11 +107,8 @@ class FamilyTaskEditor(ft.AlertDialog):
             content=ft.Column(
                 controls=[
                     self.title_field,
+                    self.deadline_row,
                     self.assignee_selector,
-                    ft.Row(
-                        controls=[self.deadline_field, self.clear_deadline_button],
-                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                    ),
                     self.audit_text,
                     self.error_text,
                 ],

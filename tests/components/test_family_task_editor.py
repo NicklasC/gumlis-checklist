@@ -22,20 +22,29 @@ class FamilyTaskEditorTests(unittest.IsolatedAsyncioTestCase):
         editor = FamilyTaskEditor(AsyncMock())
 
         choices = [
-            (control.value, control.label)
+            (control.value, control.label, control.col)
             for control in editor.assignee_field.content.controls
         ]
 
         self.assertEqual(
             choices,
             [
-                ("Alla", "Alla"),
-                ("Nicklas", "Nicklas"),
-                ("Ida", "Ida"),
-                ("Thor", "Thor"),
-                ("Johanna", "Johanna"),
+                ("Alla", "Alla", 6),
+                ("Nicklas", "Nicklas", 6),
+                ("Ida", "Ida", 6),
+                ("Thor", "Thor", 6),
+                ("Johanna", "Johanna", 6),
             ],
         )
+
+    def test_deadline_is_placed_before_the_compact_assignee_grid(self):
+        editor = FamilyTaskEditor(AsyncMock())
+
+        self.assertEqual(
+            editor.content.controls[:3],
+            [editor.title_field, editor.deadline_row, editor.assignee_selector],
+        )
+        self.assertEqual(editor.assignee_field.content.columns, 12)
 
     def test_assignee_change_is_kept_in_submitted_draft(self):
         editor = FamilyTaskEditor(AsyncMock())
