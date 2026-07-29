@@ -17,8 +17,8 @@ Målet med dokumentet är att en människa snabbt och enkelt ska få en övergri
 | Enhetstester | 100 | Datamodeller, lagring, migrering, historikregler och familjeanslutning |
 | Komponenttester | 139 | Vyernas och komponenternas logik utan webbläsare |
 | PWA- och distributionstester | 104 | Manifest, Apps Script-API, familjebrygga, byggfiler, sidmallar och de två repona |
-| GUI/E2E-tester | 83 | Verkliga användarflöden och säkerhetsangrepp i Chromium |
-| **Totalt** | **426** | |
+| GUI/E2E-tester | 84 | Verkliga användarflöden och säkerhetsangrepp i Chromium |
+| **Totalt** | **427** | |
 
 GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den byggda appen och deploy-repot finns lokalt; annars markeras de som överhoppade.
 
@@ -508,7 +508,8 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_switches_directly_from_family_back_to_private` | Användaren öppnar Familj och trycker sedan direkt på Privat utan att använda nedersta navigationen. | Familjens anslutningsvy får inte ligga kvar när huvudläget byts. |
 | `test_all_pages_remain_reachable_after_successful_family_response` | Appen tar emot en lyckad familjerespons, visar en försenad Aktuell-uppgift, filtrerar Mina och går därefter via Privat och Jobb till Checklista, Snabblistan, Historik och Senare. | Familjesvaret får inte låsa gränssnittet; Aktuell-lista, deadline, filter och all befintlig navigation ska fungera. |
 | `test_family_device_key_can_be_entered_and_reveal_control_used` | Användaren skriver en enhetsnyckel och använder fältets ögonknapp utan att nyckeln ändras. | Nyckeln måste gå att mata in och kontrollera visuellt före anslutning. |
-| `test_family_task_can_be_created_and_edited` | Användaren ansluter Familj, skapar en uppgift till Ida, öppnar den igen, ändrar titel och ansvarig till Thor samt fortsätter genom flytt, radering och slutförande. | Hela skrivflödet, omfördelning och dess tillgängliga mobilkontroller måste fungera tillsammans. |
+| `test_family_assignee_can_be_set_on_create_and_changed_afterwards` | Användaren skapar en familjeuppgift med Ida som ansvarig, öppnar den igen och ändrar ansvarig till Thor. | Ansvarigvalet måste nå serveranropet och fungera både vid skapande och efterhandsredigering. |
+| `test_family_task_can_be_created_and_edited` | Användaren ansluter Familj, skapar en uppgift med deadline, ser auditinformation och fortsätter genom redigering, flytt, radering, slutförande och Snabblistan. | Hela skrivflödet och dess tillgängliga mobilkontroller måste fungera tillsammans. |
 | `test_boot_has_no_console_errors` | Appen öppnas och fungerar utan fel under starten. | Dolda startfel kan annars ge tom sida eller trasiga funktioner senare. |
 
 ### Checklista — `tests/e2e/test_checklist_page.py`

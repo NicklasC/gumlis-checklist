@@ -69,6 +69,98 @@ class NavigationTests(BrowserTestCase):
         )
         self.page.wait_for_timeout(500)
 
+    def install_family_task_bridge(self):
+        self.page.evaluate(
+            """() => {
+                let task = null;
+                window.gumliFamilyBridge.forward = (message, worker) => {
+                    const action = message.payload?.action;
+                    const input = message.payload?.task ?? {};
+                    const timestamp = '2026-07-21T08:00:00+00:00';
+                    let data;
+                    if (action === 'ping') {
+                        data = {member: 'Nicklas'};
+                    } else if (action === 'bootstrap') {
+                        data = {
+                            tasks: task?.status === 'Aktuell' ? [task] : [],
+                            members: [{name: 'Nicklas', active: true, sort_order: 1}],
+                            favorites: [
+                                {id: 'favorite-trash', title: 'Töm soporna', active: true, sort_order: 1}
+                            ],
+                            invalidRows: []
+                        };
+                    } else if (action === 'createTask' || action === 'updateTask') {
+                        task = {
+                            id: input.id,
+                            title: input.title,
+                            status: 'Aktuell',
+                            assignee: input.assignee,
+                            assigned_by: 'Nicklas',
+                            assigned_at: timestamp,
+                            created_by: 'Nicklas',
+                            created_at: timestamp,
+                            deadline: input.deadline,
+                            updated_by: 'Nicklas',
+                            updated_at: timestamp,
+                            completed_by: null,
+                            completed_at: null,
+                            version: action === 'createTask' ? 1 : input.version + 1
+                        };
+                        data = {task};
+                    } else if (action === 'changeStatus' || action === 'deleteTask') {
+                        const completed = action === 'changeStatus' && input.status === 'Klar';
+                        task = {
+                            ...task,
+                            status: action === 'deleteTask' ? 'Raderad' : input.status,
+                            updated_by: 'Nicklas',
+                            updated_at: timestamp,
+                            completed_by: completed ? 'Nicklas' : null,
+                            completed_at: completed ? timestamp : null,
+                            version: input.version + 1
+                        };
+                        data = {task};
+                    } else if (action === 'listLater') {
+                        data = {
+                            tasks: task?.status === 'Senare' ? [task] : [],
+                            invalidRows: []
+                        };
+                    } else if (action === 'listHistory') {
+                        data = {
+                            tasks: task?.status === 'Klar' ? [task] : [],
+                            invalidRows: []
+                        };
+                    } else {
+                        data = {tasks: [], invalidRows: []};
+                    }
+                    worker.postMessage({
+                        type: 'gumli-family-response',
+                        requestId: message.requestId,
+                        response: {
+                            ok: true,
+                            data,
+                            error: null,
+                            server_time: timestamp,
+                            api_version: 'family-test'
+                        }
+                    });
+                };
+            }"""
+        )
+
+    def connect_family_task_bridge(self):
+        self.set_mode("Familj")
+        self.page.get_by_role("textbox", name="Enhetsnyckel").fill("n" * 48)
+        self.page.get_by_role(
+            "button", name="Anslut den här enheten", exact=True
+        ).click()
+        self.page.get_by_text("Ansluten som Nicklas", exact=True).wait_for(
+            state="visible", timeout=10_000
+        )
+        self.page.get_by_text("Synkad nyss", exact=True).wait_for(
+            state="visible", timeout=10_000
+        )
+        self.page.wait_for_timeout(500)
+
     def test_app_title_is_visible(self):
         self.assertTrue(self.page.get_by_text("Gumli", exact=True).is_visible())
 
@@ -271,101 +363,53 @@ class NavigationTests(BrowserTestCase):
         reveal_button.click()
         self.assertEqual(field.input_value(), "SynligEnhetsnyckel123456789012345")
 
-    def test_family_task_can_be_created_and_edited(self):
-        self.page.evaluate(
-            """() => {
-                let task = null;
-                window.gumliFamilyBridge.forward = (message, worker) => {
-                    const action = message.payload?.action;
-                    const input = message.payload?.task ?? {};
-                    const timestamp = '2026-07-21T08:00:00+00:00';
-                    let data;
-                    if (action === 'ping') {
-                        data = {member: 'Nicklas'};
-                    } else if (action === 'bootstrap') {
-                        data = {
-                            tasks: task?.status === 'Aktuell' ? [task] : [],
-                            members: [{name: 'Nicklas', active: true, sort_order: 1}],
-                            favorites: [
-                                {id: 'favorite-trash', title: 'Töm soporna', active: true, sort_order: 1}
-                            ],
-                            invalidRows: []
-                        };
-                    } else if (action === 'createTask' || action === 'updateTask') {
-                        task = {
-                            id: input.id,
-                            title: input.title,
-                            status: 'Aktuell',
-                            assignee: input.assignee,
-                            assigned_by: 'Nicklas',
-                            assigned_at: timestamp,
-                            created_by: 'Nicklas',
-                            created_at: timestamp,
-                            deadline: input.deadline,
-                            updated_by: 'Nicklas',
-                            updated_at: timestamp,
-                            completed_by: null,
-                            completed_at: null,
-                            version: action === 'createTask' ? 1 : input.version + 1
-                        };
-                        data = {task};
-                    } else if (action === 'changeStatus' || action === 'deleteTask') {
-                        const completed = action === 'changeStatus' && input.status === 'Klar';
-                        task = {
-                            ...task,
-                            status: action === 'deleteTask' ? 'Raderad' : input.status,
-                            updated_by: 'Nicklas',
-                            updated_at: timestamp,
-                            completed_by: completed ? 'Nicklas' : null,
-                            completed_at: completed ? timestamp : null,
-                            version: input.version + 1
-                        };
-                        data = {task};
-                    } else if (action === 'listLater') {
-                        data = {
-                            tasks: task?.status === 'Senare' ? [task] : [],
-                            invalidRows: []
-                        };
-                    } else if (action === 'listHistory') {
-                        data = {
-                            tasks: task?.status === 'Klar' ? [task] : [],
-                            invalidRows: []
-                        };
-                    } else {
-                        data = {tasks: [], invalidRows: []};
-                    }
-                    worker.postMessage({
-                        type: 'gumli-family-response',
-                        requestId: message.requestId,
-                        response: {
-                            ok: true,
-                            data,
-                            error: null,
-                            server_time: timestamp,
-                            api_version: 'family-test'
-                        }
-                    });
-                };
-            }"""
+    def test_family_assignee_can_be_set_on_create_and_changed_afterwards(self):
+        self.install_family_task_bridge()
+        self.connect_family_task_bridge()
+
+        self.page.get_by_role("button", name="Ny familjeuppgift", exact=True).click()
+        self.page.get_by_role("textbox", name="Uppgift").fill("GUI-ansvarig")
+        self.page.get_by_role("radio", name="Ida", exact=True).click()
+        self.page.get_by_role("button", name="Skapa uppgift", exact=True).click()
+        self.page.get_by_text("Uppgiften skapad", exact=True).wait_for(
+            state="visible", timeout=10_000
         )
 
-        self.set_mode("Familj")
-        self.page.get_by_role("textbox", name="Enhetsnyckel").fill("n" * 48)
-        self.page.get_by_role("button", name="Anslut den här enheten", exact=True).click()
-        self.page.get_by_text("Ansluten som Nicklas", exact=True).wait_for(
+        task = self.page.get_by_role(
+            "button", name="Redigera GUI-ansvarig", exact=False
+        )
+        task.wait_for(state="visible", timeout=10_000)
+        self.assertIn("Ansvarig: Ida", task.inner_text())
+
+        task.click()
+        self.page.get_by_text("Redigera familjeuppgift", exact=True).wait_for(
             state="visible", timeout=10_000
         )
-        self.page.get_by_text("Synkad nyss", exact=True).wait_for(
+        self.assertTrue(
+            self.page.get_by_role("radio", name="Ida", exact=True).is_checked()
+        )
+        self.page.get_by_role("radio", name="Thor", exact=True).click()
+        self.page.get_by_role("button", name="Spara ändringar", exact=True).click()
+        self.page.get_by_text("Ändringar sparade", exact=True).wait_for(
             state="visible", timeout=10_000
         )
-        self.page.wait_for_timeout(500)
+
+        updated_task = self.page.get_by_role(
+            "button", name="Redigera GUI-ansvarig", exact=False
+        )
+        updated_task.wait_for(state="visible", timeout=10_000)
+        self.assertIn("Ansvarig: Thor", updated_task.inner_text())
+        self.assertNotIn("Ansvarig: Ida", updated_task.inner_text())
+
+    def test_family_task_can_be_created_and_edited(self):
+        self.install_family_task_bridge()
+        self.connect_family_task_bridge()
 
         self.page.get_by_role("button", name="Ny familjeuppgift", exact=True).click()
         self.page.get_by_role("textbox", name="Uppgift", exact=False).wait_for(
             state="visible", timeout=10_000
         )
         self.page.get_by_role("textbox", name="Uppgift").fill("GUI-familjeuppgift")
-        self.page.get_by_role("radio", name="Ida", exact=True).click()
         self.page.get_by_role("textbox", name="Deadline (valfritt)").fill("2026-07-28")
         self.page.wait_for_timeout(300)
         self.page.get_by_role("button", name="Skapa uppgift", exact=True).click()
@@ -378,14 +422,12 @@ class NavigationTests(BrowserTestCase):
         created_task.wait_for(
             state="visible", timeout=10_000
         )
-        self.assertIn("Ansvarig: Ida", created_task.inner_text())
         created_task.click()
         self.page.get_by_text("Redigera familjeuppgift", exact=True).wait_for(state="visible")
         self.assertTrue(self.page.get_by_text("Skapad av Nicklas", exact=False).is_visible())
         self.assertTrue(self.page.get_by_text("Senast ändrad av Nicklas", exact=False).is_visible())
         title_field = self.page.get_by_role("textbox", name="Uppgift")
         title_field.fill("Redigerad GUI-uppgift")
-        self.page.get_by_role("radio", name="Thor", exact=True).click()
         self.page.wait_for_timeout(300)
         self.page.get_by_role("button", name="Spara ändringar", exact=True).click()
         self.page.get_by_text("Ändringar sparade", exact=True).wait_for(
@@ -395,12 +437,6 @@ class NavigationTests(BrowserTestCase):
             "button", name="Redigera Redigerad GUI-uppgift", exact=False
         ).wait_for(
             state="visible", timeout=10_000,
-        )
-        self.assertIn(
-            "Ansvarig: Thor",
-            self.page.get_by_role(
-                "button", name="Redigera Redigerad GUI-uppgift", exact=False
-            ).inner_text(),
         )
         self.assertEqual(
             self.page.get_by_role(
