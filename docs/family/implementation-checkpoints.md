@@ -182,8 +182,9 @@ Apps Script-operation eller distribution krävdes; befintlig version 10 och
 - [x] Fem isolerade Chromium-angrepp verifierar fel nonce, fel fönster, tidigare
       för bred Google-origin, inbäddad Gumli, samtidiga väntande anrop och sent
       ready-svar med säkert återförsök.
-- [ ] Produktionsversion 10 behålls endast tills ett samordnat säkerhetssläpp med
-      nytt Apps Script deployment-ID och motsvarande PWA-adress kan verifieras.
+- [x] Apps Script version 11 är publicerad med ett separat nytt deployment-ID
+      och PWA-källan pekar på den nya adressen. Produktionsversion 10 lämnas
+      tillfälligt aktiv tills de anslutna telefonerna har hämtat den nya PWA:n.
 
 ### Verifieringsläge
 
@@ -192,9 +193,9 @@ Apps Script-operation eller distribution krävdes; befintlig version 10 och
       är godkända mot den rena byggnaden före den avgränsade raderingsfixen.
 - [x] Navigationsgruppen gav 15 av 16 godkända tester och identifierade den
       intermittenta dialoglivscykeln vid radering; den bakomliggande ordningen är korrigerad.
-- [ ] Kör raderingsflödet upprepat mot slutbyggnaden.
+- [x] Raderingsflödet är godkänt fem gånger i följd mot slutbyggnaden.
 - [x] Hela sviten är godkänd med 424 av 424 tester.
-- [ ] Publicera och verifiera lokal slutbuild `23591048ffaf3d08` live tillsammans
+- [ ] Publicera och verifiera lokal slutbuild `af1a5abd76395548` live tillsammans
       med den nya Apps Script-deploymenten.
 - [ ] Verifiera den verkliga Google-sandbox-originen och att en avsiktligt felaktig
       testnyckel ger `UNAUTHORIZED` genom den nya produktionsbryggan.
