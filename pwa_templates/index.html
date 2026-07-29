@@ -6,7 +6,39 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
   <meta name="description" content="Gumli">
+
+  <script>
+    // Flutter rewrites the viewport meta tag during startup. Keep the Android
+    // keyboard policy attached so the layout viewport shrinks instead of the
+    // keyboard covering the focused form control.
+    (() => {
+      const content = [
+        'width=device-width',
+        'initial-scale=1.0',
+        'maximum-scale=1.0',
+        'user-scalable=no',
+        'interactive-widget=resizes-content'
+      ].join(', ');
+      const applyKeyboardViewport = () => {
+        document.querySelectorAll('meta[name="viewport"]').forEach((viewport) => {
+          if (viewport.getAttribute('content') !== content) {
+            viewport.setAttribute('content', content);
+          }
+        });
+      };
+      applyKeyboardViewport();
+      new MutationObserver(applyKeyboardViewport).observe(document.head, {
+        attributes: true,
+        attributeFilter: ['content'],
+        childList: true,
+        subtree: true
+      });
+    })();
+  </script>
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">

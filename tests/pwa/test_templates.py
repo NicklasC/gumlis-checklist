@@ -11,6 +11,13 @@ class IndexTemplateTests(unittest.TestCase):
     def test_uses_github_pages_base_path(self):
         self.assertIn('<base href="/gumlis-checklist/">', self.html)
 
+    def test_mobile_keyboard_resizes_the_layout_viewport(self):
+        self.assertIn(
+            "interactive-widget=resizes-content",
+            self.html,
+        )
+        self.assertIn("new MutationObserver(applyKeyboardViewport)", self.html)
+
     def test_sets_flet_entrypoint_base(self):
         self.assertIn('flet.entrypointBaseUrl="/gumlis-checklist/"', self.html)
 

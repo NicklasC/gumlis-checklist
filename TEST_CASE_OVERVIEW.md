@@ -16,9 +16,9 @@ Målet med dokumentet är att en människa snabbt och enkelt ska få en övergri
 |---|---:|---|
 | Enhetstester | 100 | Datamodeller, lagring, migrering, historikregler och familjeanslutning |
 | Komponenttester | 139 | Vyernas och komponenternas logik utan webbläsare |
-| PWA- och distributionstester | 104 | Manifest, Apps Script-API, familjebrygga, byggfiler, sidmallar och de två repona |
-| GUI/E2E-tester | 84 | Verkliga användarflöden och säkerhetsangrepp i Chromium |
-| **Totalt** | **427** | |
+| PWA- och distributionstester | 106 | Manifest, Apps Script-API, familjebrygga, byggfiler, sidmallar och de två repona |
+| GUI/E2E-tester | 85 | Verkliga användarflöden och säkerhetsangrepp i Chromium |
+| **Totalt** | **430** | |
 
 GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den byggda appen och deploy-repot finns lokalt; annars markeras de som överhoppade.
 
@@ -375,6 +375,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | Testfall | Vad testet kontrollerar |
 |---|---|
 | `test_uses_github_pages_base_path` | HTML-mallen använder `/gumlis-checklist/` som bassökväg. |
+| `test_mobile_keyboard_resizes_the_layout_viewport` | HTML-mallen instruerar Chrome på Android att minska appytan när skärmtangentbordet öppnas. |
 | `test_sets_flet_entrypoint_base` | Flets startpunkt använder rätt publiceringssökväg. |
 | `test_sets_flet_asset_base` | Flets resurser hämtas från rätt publiceringssökväg. |
 | `test_uses_flet_runtime_cdn` | Den fungerande Flet-runtimeversionen hämtas från dess CDN. |
@@ -453,6 +454,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_python_worker_does_not_forward_family_responses_to_flet` | Det färdiga bygget stoppar familjesvar innan Flets interna meddelandekanal. |
 | `test_built_manifest_is_valid_json` | Det byggda manifestet är giltig JSON och avser Gumli. |
 | `test_built_index_uses_expected_base` | Den byggda startsidan använder `/gumlis-checklist/`. |
+| `test_built_index_resizes_for_the_mobile_keyboard` | Den färdigbyggda appen behåller inställningen som förhindrar att tangentbordet lägger sig över formuläret. |
 | `test_built_index_uses_hashed_python_archive_url` | Startsidan hänvisar till en versionsmärkt Python-fil. |
 | `test_built_family_bridge_uses_authenticated_nonce_handshake` | Den färdigbyggda startsidan innehåller den nonce-autentiserade familjebryggan och inte den tidigare breda originkontrollen. |
 | `test_built_icons_directory_exists` | Den byggda appen innehåller en ikonmapp. |
@@ -509,6 +511,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_all_pages_remain_reachable_after_successful_family_response` | Appen tar emot en lyckad familjerespons, visar en försenad Aktuell-uppgift, filtrerar Mina och går därefter via Privat och Jobb till Checklista, Snabblistan, Historik och Senare. | Familjesvaret får inte låsa gränssnittet; Aktuell-lista, deadline, filter och all befintlig navigation ska fungera. |
 | `test_family_device_key_can_be_entered_and_reveal_control_used` | Användaren skriver en enhetsnyckel och använder fältets ögonknapp utan att nyckeln ändras. | Nyckeln måste gå att mata in och kontrollera visuellt före anslutning. |
 | `test_family_assignee_can_be_set_on_create_and_changed_afterwards` | Användaren skapar en familjeuppgift med Ida som ansvarig, öppnar den igen och ändrar ansvarig till Thor. | Ansvarigvalet måste nå serveranropet och fungera både vid skapande och efterhandsredigering. |
+| `test_family_deadline_stays_visible_when_mobile_keyboard_opens` | Användaren öppnar en befintlig familjeuppgift och fokuserar deadlinefältet när den tillgängliga mobilhöjden minskar som av Androids tangentbord. | Deadlinefältet måste ligga kvar ovanför tangentbordet så att användaren ser vad som skrivs. |
 | `test_family_task_can_be_created_and_edited` | Användaren ansluter Familj, skapar en uppgift med deadline, ser auditinformation och fortsätter genom redigering, flytt, radering, slutförande och Snabblistan. | Hela skrivflödet och dess tillgängliga mobilkontroller måste fungera tillsammans. |
 | `test_boot_has_no_console_errors` | Appen öppnas och fungerar utan fel under starten. | Dolda startfel kan annars ge tom sida eller trasiga funktioner senare. |
 

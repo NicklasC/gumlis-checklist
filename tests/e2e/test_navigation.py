@@ -401,6 +401,35 @@ class NavigationTests(BrowserTestCase):
         self.assertIn("Ansvarig: Thor", updated_task.inner_text())
         self.assertNotIn("Ansvarig: Ida", updated_task.inner_text())
 
+    def test_family_deadline_stays_visible_when_mobile_keyboard_opens(self):
+        self.install_family_polish_bridge()
+        self.connect_family_polish_bridge()
+
+        self.page.get_by_role(
+            "button", name="Redigera Pilotuppgift 1", exact=False
+        ).click()
+        deadline = self.page.get_by_role("textbox", name="Deadline (valfritt)")
+        deadline.wait_for(state="visible", timeout=10_000)
+        deadline.click()
+
+        # A real Android keyboard shrinks both viewports because index.html opts
+        # into interactive-widget=resizes-content. Reproduce that smaller app
+        # area here and verify Flutter keeps the focused field above it.
+        self.page.set_viewport_size({"width": 410, "height": 480})
+        self.page.wait_for_timeout(500)
+
+        viewport_content = self.page.locator('meta[name="viewport"]').get_attribute(
+            "content"
+        )
+        self.assertIn("interactive-widget=resizes-content", viewport_content)
+        field_box = deadline.bounding_box()
+        self.assertIsNotNone(field_box)
+        self.assertGreaterEqual(field_box["y"], 0)
+        self.assertLessEqual(
+            field_box["y"] + field_box["height"],
+            self.page.evaluate("window.innerHeight"),
+        )
+
     def test_family_task_can_be_created_and_edited(self):
         self.install_family_task_bridge()
         self.connect_family_task_bridge()

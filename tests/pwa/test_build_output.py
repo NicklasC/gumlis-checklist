@@ -45,6 +45,14 @@ class BuildOutputTests(unittest.TestCase):
         html = (DEPLOY_APP / "index.html").read_text(encoding="utf-8")
         self.assertIn('/gumlis-checklist/', html)
 
+    def test_built_index_resizes_for_the_mobile_keyboard(self):
+        html = (DEPLOY_APP / "index.html").read_text(encoding="utf-8")
+        self.assertIn(
+            "interactive-widget=resizes-content",
+            html,
+        )
+        self.assertIn("new MutationObserver(applyKeyboardViewport)", html)
+
     def test_built_index_uses_hashed_python_archive_url(self):
         html = (DEPLOY_APP / "index.html").read_text(encoding="utf-8")
         self.assertRegex(html, r'appPackageUrl: "app\.tar\.gz\?build=[0-9a-f]{16}"')
