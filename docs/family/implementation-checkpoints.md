@@ -203,7 +203,7 @@ Apps Script-operation eller distribution krävdes; befintlig version 10 och
 - [x] Pilotfelet där ansvarig inte kunde väljas är rättat med direkt tryckbara
       val för Alla, Nicklas, Ida, Thor och Johanna. GUI-provet verifierar Ida
       vid skapande och omfördelning till Thor efteråt; hela sviten är godkänd
-      med 426 av 426 tester.
+      med 426 av 426 tester och Pages-build `9bcf1b66e28882e0` är verifierad live.
 - [ ] Bekräfta att anslutna telefoner har hämtat den nya PWA:n och stäng därefter
       den gamla sårbara Apps Script-deploymenten.
 
