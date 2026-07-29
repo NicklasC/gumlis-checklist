@@ -200,6 +200,10 @@ Apps Script-operation eller distribution krävdes; befintlig version 10 och
 - [x] Den verkliga Google-sandbox-originen matchar den strikta
       `*-script.googleusercontent.com`-regeln och en avsiktligt felaktig
       testnyckel ger `UNAUTHORIZED` genom den nya produktionsbryggan.
+- [x] Pilotfelet där ansvarig inte kunde väljas är rättat med direkt tryckbara
+      val för Alla, Nicklas, Ida, Thor och Johanna. GUI-provet verifierar Ida
+      vid skapande och omfördelning till Thor efteråt; hela sviten är godkänd
+      med 426 av 426 tester.
 - [ ] Bekräfta att anslutna telefoner har hämtat den nya PWA:n och stäng därefter
       den gamla sårbara Apps Script-deploymenten.
 

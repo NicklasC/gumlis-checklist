@@ -1,5 +1,6 @@
 import unittest
 from datetime import date, datetime, timezone
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 from src.models.family import FamilyTask, FamilyTaskStatus
@@ -13,9 +14,38 @@ class FamilyTaskEditorTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(editor.heading.value, "Ny familjeuppgift")
         self.assertEqual(editor.title_field.label, "Uppgift")
-        self.assertEqual(editor.assignee_field.label, "Ansvarig")
+        self.assertEqual(editor.assignee_label.value, "Ansvarig")
         self.assertEqual(editor.assignee_field.value, "Alla")
         self.assertEqual(editor.save_button.content.value, "Skapa uppgift")
+
+    def test_assignee_selector_exposes_all_household_choices(self):
+        editor = FamilyTaskEditor(AsyncMock())
+
+        choices = [
+            (control.value, control.label)
+            for control in editor.assignee_field.content.controls
+        ]
+
+        self.assertEqual(
+            choices,
+            [
+                ("Alla", "Alla"),
+                ("Nicklas", "Nicklas"),
+                ("Ida", "Ida"),
+                ("Thor", "Thor"),
+                ("Johanna", "Johanna"),
+            ],
+        )
+
+    def test_assignee_change_is_kept_in_submitted_draft(self):
+        editor = FamilyTaskEditor(AsyncMock())
+        editor.prepare()
+        editor.title_field.value = "Töm soporna"
+
+        editor._assignee_changed(SimpleNamespace(data="Ida"))
+
+        self.assertEqual(editor.assignee_field.value, "Ida")
+        self.assertEqual(editor.draft().assignee, "Ida")
 
     def test_draft_parses_deadline_and_clear_action_removes_it(self):
         editor = FamilyTaskEditor(AsyncMock())

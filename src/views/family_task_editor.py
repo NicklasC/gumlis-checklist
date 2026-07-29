@@ -6,7 +6,7 @@ from datetime import date
 
 import flet as ft
 
-from src.core.theme import MINT_GREEN, SURFACE_COLOR, TEXT_MUTED, TEXT_PRIMARY
+from src.core.theme import MINT_GREEN, SURFACE_COLOR, TEXT_MUTED, TEXT_PRIMARY, border_all
 from src.models.family import FAMILY_ASSIGNEES, FamilyTask, FamilyTaskDraft, FamilyTaskStatus
 
 
@@ -31,12 +31,38 @@ class FamilyTaskEditor(ft.AlertDialog):
             border_color="#294238",
             focused_border_color=MINT_GREEN,
         )
-        self.assignee_field = ft.Dropdown(
-            label="Ansvarig",
+        self.assignee_label = ft.Text(
+            "Ansvarig",
+            size=12,
+            color=TEXT_MUTED,
+        )
+        self.assignee_field = ft.RadioGroup(
             value="Alla",
-            options=[ft.DropdownOption(key=name, text=name) for name in FAMILY_ASSIGNEES],
-            border_color="#294238",
-            focused_border_color=MINT_GREEN,
+            on_change=self._assignee_changed,
+            content=ft.Row(
+                controls=[
+                    ft.Radio(
+                        value=name,
+                        label=name,
+                        active_color=MINT_GREEN,
+                        label_style=ft.TextStyle(color=TEXT_PRIMARY, size=13),
+                    )
+                    for name in FAMILY_ASSIGNEES
+                ],
+                spacing=6,
+                run_spacing=0,
+                wrap=True,
+            ),
+        )
+        self.assignee_selector = ft.Container(
+            content=ft.Column(
+                controls=[self.assignee_label, self.assignee_field],
+                spacing=2,
+                tight=True,
+            ),
+            padding=ft.Padding(left=12, top=7, right=12, bottom=7),
+            border=border_all(1.0, "#294238"),
+            border_radius=4,
         )
         self.deadline_field = ft.TextField(
             label="Deadline (valfritt)",
@@ -76,7 +102,7 @@ class FamilyTaskEditor(ft.AlertDialog):
             content=ft.Column(
                 controls=[
                     self.title_field,
-                    self.assignee_field,
+                    self.assignee_selector,
                     ft.Row(
                         controls=[self.deadline_field, self.clear_deadline_button],
                         vertical_alignment=ft.CrossAxisAlignment.CENTER,
@@ -250,6 +276,12 @@ class FamilyTaskEditor(ft.AlertDialog):
 
     def _clear_deadline(self, _event=None) -> None:
         self.deadline_field.value = ""
+        self._safe_update()
+
+    def _assignee_changed(self, event) -> None:
+        selected = str(getattr(event, "data", "") or "").strip()
+        if selected in FAMILY_ASSIGNEES:
+            self.assignee_field.value = selected
         self._safe_update()
 
     def _safe_update(self) -> None:

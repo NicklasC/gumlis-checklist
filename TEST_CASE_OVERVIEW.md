@@ -15,10 +15,10 @@ Målet med dokumentet är att en människa snabbt och enkelt ska få en övergri
 | Område | Antal | Innehåll |
 |---|---:|---|
 | Enhetstester | 100 | Datamodeller, lagring, migrering, historikregler och familjeanslutning |
-| Komponenttester | 137 | Vyernas och komponenternas logik utan webbläsare |
+| Komponenttester | 139 | Vyernas och komponenternas logik utan webbläsare |
 | PWA- och distributionstester | 104 | Manifest, Apps Script-API, familjebrygga, byggfiler, sidmallar och de två repona |
 | GUI/E2E-tester | 83 | Verkliga användarflöden och säkerhetsangrepp i Chromium |
-| **Totalt** | **424** | |
+| **Totalt** | **426** | |
 
 GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den byggda appen och deploy-repot finns lokalt; annars markeras de som överhoppade.
 
@@ -235,9 +235,13 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | Testfall | Vad testet kontrollerar |
 |---|---|
 | `test_create_form_defaults_to_all_and_uses_clear_labels` | Ny uppgift använder tydliga etiketter och Alla som standardansvarig. |
+| `test_assignee_selector_exposes_all_household_choices` | Formuläret visar Alla, Nicklas, Ida, Thor och Johanna som direkt tryckbara ansvarigval. |
+| `test_assignee_change_is_kept_in_submitted_draft` | Ett valt namn följer med i uppgiftsutkastet som skickas till servern. |
 | `test_draft_parses_deadline_and_clear_action_removes_it` | Deadline läses som datum och kan tas bort igen. |
 | `test_edit_form_shows_assignment_and_latest_editor` | Redigering visar vem som skapade, tilldelade och senast ändrade uppgiften. |
+| `test_edit_actions_move_current_task_to_later` | En befintlig aktuell uppgift kan flyttas till Senare från redigeringsdialogen. |
 | `test_invalid_deadline_blocks_submit_with_swedish_message` | Ett felaktigt datum stoppas med ett tydligt svenskt felmeddelande. |
+| `test_offline_lock_blocks_mutations_but_keeps_cancel_available` | Offline-låsning stoppar skrivåtgärder men låter användaren stänga dialogen. |
 
 ### Familjens övriga läsvyer — `tests/components/test_family_task_pages.py`
 
@@ -504,7 +508,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_switches_directly_from_family_back_to_private` | Användaren öppnar Familj och trycker sedan direkt på Privat utan att använda nedersta navigationen. | Familjens anslutningsvy får inte ligga kvar när huvudläget byts. |
 | `test_all_pages_remain_reachable_after_successful_family_response` | Appen tar emot en lyckad familjerespons, visar en försenad Aktuell-uppgift, filtrerar Mina och går därefter via Privat och Jobb till Checklista, Snabblistan, Historik och Senare. | Familjesvaret får inte låsa gränssnittet; Aktuell-lista, deadline, filter och all befintlig navigation ska fungera. |
 | `test_family_device_key_can_be_entered_and_reveal_control_used` | Användaren skriver en enhetsnyckel och använder fältets ögonknapp utan att nyckeln ändras. | Nyckeln måste gå att mata in och kontrollera visuellt före anslutning. |
-| `test_family_task_can_be_created_and_edited` | Användaren ansluter Familj, skapar en uppgift med deadline, ser auditinformation och ändrar titeln. | Hela skrivflödet och dess tillgängliga mobilkontroller måste fungera tillsammans. |
+| `test_family_task_can_be_created_and_edited` | Användaren ansluter Familj, skapar en uppgift till Ida, öppnar den igen, ändrar titel och ansvarig till Thor samt fortsätter genom flytt, radering och slutförande. | Hela skrivflödet, omfördelning och dess tillgängliga mobilkontroller måste fungera tillsammans. |
 | `test_boot_has_no_console_errors` | Appen öppnas och fungerar utan fel under starten. | Dolda startfel kan annars ge tom sida eller trasiga funktioner senare. |
 
 ### Checklista — `tests/e2e/test_checklist_page.py`

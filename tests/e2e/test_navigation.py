@@ -365,6 +365,7 @@ class NavigationTests(BrowserTestCase):
             state="visible", timeout=10_000
         )
         self.page.get_by_role("textbox", name="Uppgift").fill("GUI-familjeuppgift")
+        self.page.get_by_role("radio", name="Ida", exact=True).click()
         self.page.get_by_role("textbox", name="Deadline (valfritt)").fill("2026-07-28")
         self.page.wait_for_timeout(300)
         self.page.get_by_role("button", name="Skapa uppgift", exact=True).click()
@@ -377,12 +378,14 @@ class NavigationTests(BrowserTestCase):
         created_task.wait_for(
             state="visible", timeout=10_000
         )
+        self.assertIn("Ansvarig: Ida", created_task.inner_text())
         created_task.click()
         self.page.get_by_text("Redigera familjeuppgift", exact=True).wait_for(state="visible")
         self.assertTrue(self.page.get_by_text("Skapad av Nicklas", exact=False).is_visible())
         self.assertTrue(self.page.get_by_text("Senast ändrad av Nicklas", exact=False).is_visible())
         title_field = self.page.get_by_role("textbox", name="Uppgift")
         title_field.fill("Redigerad GUI-uppgift")
+        self.page.get_by_role("radio", name="Thor", exact=True).click()
         self.page.wait_for_timeout(300)
         self.page.get_by_role("button", name="Spara ändringar", exact=True).click()
         self.page.get_by_text("Ändringar sparade", exact=True).wait_for(
@@ -392,6 +395,12 @@ class NavigationTests(BrowserTestCase):
             "button", name="Redigera Redigerad GUI-uppgift", exact=False
         ).wait_for(
             state="visible", timeout=10_000,
+        )
+        self.assertIn(
+            "Ansvarig: Thor",
+            self.page.get_by_role(
+                "button", name="Redigera Redigerad GUI-uppgift", exact=False
+            ).inner_text(),
         )
         self.assertEqual(
             self.page.get_by_role(
