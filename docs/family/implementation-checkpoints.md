@@ -204,6 +204,10 @@ Apps Script-operation eller distribution krävdes; befintlig version 10 och
       val för Alla, Nicklas, Ida, Thor och Johanna. GUI-provet verifierar Ida
       vid skapande och omfördelning till Thor efteråt; hela sviten är godkänd
       med 426 av 426 tester och Pages-build `9bcf1b66e28882e0` är verifierad live.
+- [x] Androids skärmtangentbord minskar nu PWA:ns layout-viewport i stället för
+      att täcka familjeeditorns deadlinefält. Sex riktade PWA- och GUI-tester är
+      godkända; Pages-commit `01ed9f5` och build `9323adffbf5bdd12` är verifierade
+      både cachefritt och efter Flets runtime-start.
 - [ ] Bekräfta att anslutna telefoner har hämtat den nya PWA:n och stäng därefter
       den gamla sårbara Apps Script-deploymenten.
 
