@@ -15,6 +15,7 @@ from src.core.theme import (
 )
 from src.models.family import FamilyBootstrap, FamilyTask, FamilyTaskDraft, FamilyTaskStatus
 from src.repositories.family_repository import FamilyVersionConflict
+from src.views.components.family_quick_add import FamilyQuickAdd
 from src.views.family_task_editor import FamilyTaskEditor
 
 
@@ -216,19 +217,7 @@ class FamilyCurrentView(ft.Container):
         )
         self.filter_row = ft.Row(spacing=6, tight=True)
         self.list_container = ft.Column(scroll=ft.ScrollMode.AUTO, spacing=6, expand=True)
-        self._create_icon_button = ft.IconButton(
-            icon=ft.Icons.ADD_ROUNDED,
-            tooltip="Ny familjeuppgift",
-            icon_color=MINT_GREEN,
-            disabled=True,
-            on_click=self._open_create,
-        )
-        self.create_button = ft.Semantics(
-            label="Ny familjeuppgift",
-            button=True,
-            exclude_semantics=True,
-            content=self._create_icon_button,
-        )
+        self.quick_add = FamilyQuickAdd(self._open_create)
         self.editor = FamilyTaskEditor(self._save_editor, self._task_action)
         self._rebuild_filter_buttons()
 
@@ -240,7 +229,7 @@ class FamilyCurrentView(ft.Container):
                         controls=[
                             ft.Column(controls=[self.header_text, self.member_text], spacing=1, tight=True),
                             ft.Row(
-                                controls=[self.status_text, self.retry_button, self.create_button],
+                                controls=[self.status_text, self.retry_button],
                                 spacing=4,
                                 tight=True,
                             ),
@@ -249,6 +238,7 @@ class FamilyCurrentView(ft.Container):
                     ),
                     self.filter_row,
                     self.list_container,
+                    self.quick_add,
                 ],
                 spacing=8,
                 expand=True,
@@ -318,14 +308,7 @@ class FamilyCurrentView(ft.Container):
 
     def _set_mutations_enabled(self, enabled: bool):
         self.mutations_enabled = enabled
-        if enabled:
-            # Enable once after the first live sync. Later offline states are
-            # enforced by the handler guard so Flet keeps the callback stable.
-            self._create_icon_button.disabled = False
-        self._create_icon_button.icon_color = MINT_GREEN if enabled else TEXT_MUTED
-        self._create_icon_button.tooltip = (
-            "Ny familjeuppgift" if enabled else "Synka Familj för att göra ändringar"
-        )
+        self.quick_add.set_enabled(enabled)
         if self.bootstrap is not None:
             self._render_tasks()
 
@@ -392,10 +375,11 @@ class FamilyCurrentView(ft.Container):
                 for task in tasks
             ]
 
-    def _open_create(self, _event=None):
+    def _open_create(self, title: str):
         if not self.mutations_enabled:
             return
         self.editor.prepare()
+        self.editor.title_field.value = title
         self._show_editor()
 
     def _open_edit(self, task: FamilyTask):
@@ -454,6 +438,8 @@ class FamilyCurrentView(ft.Container):
             self._upsert_task(saved)
             await self.repository.cache_bootstrap(self.bootstrap)
             editor.close()
+            if task is None:
+                self.quick_add.clear()
             self._set_status(
                 "Ändringar sparade" if task is not None else "Uppgiften skapad",
                 MINT_GREEN,

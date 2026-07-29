@@ -141,6 +141,15 @@ class FamilyCurrentViewTests(unittest.TestCase):
         view._render_tasks()
         self.assertEqual(view.list_container.controls[0].value, "Du har inga tilldelade familjeuppgifter")
 
+    def test_quick_add_prefills_the_detailed_family_editor(self):
+        view = FamilyCurrentView(repository=None, member="Nicklas")
+        view._set_mutations_enabled(True)
+
+        view._open_create("Töm soporna")
+
+        self.assertEqual(view.editor.title_field.value, "Töm soporna")
+        self.assertEqual(view.editor.heading.value, "Ny familjeuppgift")
+
 
 class FamilyCurrentMutationTests(unittest.IsolatedAsyncioTestCase):
     def make_view(self, repository=None):
@@ -162,6 +171,7 @@ class FamilyCurrentMutationTests(unittest.IsolatedAsyncioTestCase):
         view, repository = self.make_view()
         created = make_task("created", "Töm soporna", assignee="Ida")
         repository.create_task = AsyncMock(return_value=created)
+        view.quick_add.text_field.value = "Töm soporna"
 
         await view._save_editor(
             None,
@@ -177,6 +187,7 @@ class FamilyCurrentMutationTests(unittest.IsolatedAsyncioTestCase):
         repository.cache_bootstrap.assert_awaited_once()
         self.assertEqual([task.id for task in view.bootstrap.tasks], ["created"])
         self.assertEqual(view.status_text.value, "Uppgiften skapad")
+        self.assertEqual(view.quick_add.text_field.value, "")
 
     async def test_create_retry_reuses_same_client_task_id(self):
         view, repository = self.make_view()
@@ -260,10 +271,8 @@ class FamilyCurrentSyncTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(view.status_text.value, "Offline – visar sparad data")
         self.assertTrue(view.retry_button.visible)
         self.assertFalse(view.mutations_enabled)
-        self.assertEqual(
-            view._create_icon_button.tooltip,
-            "Synka Familj för att göra ändringar",
-        )
+        self.assertTrue(view.quick_add.text_field.disabled)
+        self.assertTrue(view.quick_add.continue_button.disabled)
         self.assertFalse(view.list_container.controls[0].complete_button.visible)
 
     async def test_successful_retry_reenables_mutations_and_hides_retry(self):
@@ -277,7 +286,8 @@ class FamilyCurrentSyncTests(unittest.IsolatedAsyncioTestCase):
         await view._sync()
 
         self.assertTrue(view.mutations_enabled)
-        self.assertEqual(view._create_icon_button.tooltip, "Ny familjeuppgift")
+        self.assertFalse(view.quick_add.text_field.disabled)
+        self.assertFalse(view.quick_add.continue_button.disabled)
         self.assertFalse(view.retry_button.visible)
         self.assertEqual(view.status_text.value, "Synkad nyss")
 

@@ -15,10 +15,10 @@ Målet med dokumentet är att en människa snabbt och enkelt ska få en övergri
 | Område | Antal | Innehåll |
 |---|---:|---|
 | Enhetstester | 100 | Datamodeller, lagring, migrering, historikregler och familjeanslutning |
-| Komponenttester | 140 | Vyernas och komponenternas logik utan webbläsare |
+| Komponenttester | 145 | Vyernas och komponenternas logik utan webbläsare |
 | PWA- och distributionstester | 106 | Manifest, Apps Script-API, familjebrygga, byggfiler, sidmallar och de två repona |
-| GUI/E2E-tester | 85 | Verkliga användarflöden och säkerhetsangrepp i Chromium |
-| **Totalt** | **431** | |
+| GUI/E2E-tester | 86 | Verkliga användarflöden och säkerhetsangrepp i Chromium |
+| **Totalt** | **437** | |
 
 GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den byggda appen och deploy-repot finns lokalt; annars markeras de som överhoppade.
 
@@ -226,7 +226,8 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_row_shows_who_reassigned_current_assignee` | Raden visar vem som satte nuvarande ansvarig när uppgiften har omfördelats. |
 | `test_all_and_mine_filters_sort_and_count_tasks` | Alla/Mina filtrerar, räknar och sorterar Aktuell-listan enligt familjereglerna. |
 | `test_empty_mine_filter_has_clear_message` | Ett tomt Mina-filter ger ett tydligt meddelande. |
-| `test_create_editor_adds_returned_task_and_updates_cache` | En lyckad skapning visas direkt och sparas i familjecachen. |
+| `test_quick_add_prefills_the_detailed_family_editor` | Text från Familjs snabbfält förifyller den detaljerade editorn. |
+| `test_create_editor_adds_returned_task_and_updates_cache` | En lyckad skapning visas direkt, sparas i familjecachen och tömmer snabbfältet. |
 | `test_create_retry_reuses_same_client_task_id` | Ett nytt försök efter timeout återanvänder samma klient-ID och kan inte skapa en dubblett. |
 | `test_update_conflict_loads_latest_task_without_overwriting` | En samtidig ändring laddas in i formuläret och skrivs inte över tyst. |
 
@@ -266,6 +267,15 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_submission_clears_field` | Inmatningsfältet töms efter en giltig uppgift. |
 | `test_blank_submission_does_not_call_callback` | Tom text skapar ingen uppgift. |
 | `test_blank_submission_focuses_field` | Fältet behåller fokus efter en tom inmatning. |
+
+### Familjens snabbinmatning — `tests/components/test_family_quick_add.py`
+
+| Testfall | Vad testet kontrollerar |
+|---|---|
+| `test_uses_same_prompt_and_clear_family_action` | Familj använder samma ledtext som Privat/Jobb och en tydlig knapp för familjeuppgift. |
+| `test_continue_trims_title_without_clearing_before_save` | Titeln trimmas och skickas till editorn utan att komponenten töms före sparandet. |
+| `test_blank_or_disabled_composer_does_not_open_editor` | Tomt eller offline-låst snabbfält öppnar inte editorn. |
+| `test_successful_create_can_clear_composer` | Snabbfältet kan tömmas efter en lyckad skapning. |
 
 ### Uppgiftskort — `tests/components/test_item_card.py`
 
@@ -512,6 +522,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_all_pages_remain_reachable_after_successful_family_response` | Appen tar emot en lyckad familjerespons, visar en försenad Aktuell-uppgift, filtrerar Mina och går därefter via Privat och Jobb till Checklista, Snabblistan, Historik och Senare. | Familjesvaret får inte låsa gränssnittet; Aktuell-lista, deadline, filter och all befintlig navigation ska fungera. |
 | `test_family_device_key_can_be_entered_and_reveal_control_used` | Användaren skriver en enhetsnyckel och använder fältets ögonknapp utan att nyckeln ändras. | Nyckeln måste gå att mata in och kontrollera visuellt före anslutning. |
 | `test_family_assignee_can_be_set_on_create_and_changed_afterwards` | Användaren skapar en familjeuppgift med Ida som ansvarig, öppnar den igen och ändrar ansvarig till Thor. | Ansvarigvalet måste nå serveranropet och fungera både vid skapande och efterhandsredigering. |
+| `test_family_quick_add_prefills_editor_and_clears_after_create` | Användaren skriver i Familjs snabbfält, fortsätter med Enter eller knappen, får titeln förifylld i editorn och ser fältet tömmas efter skapande. | Familj ska kännas som Privat/Jobb utan att hoppa över ansvarig och deadline. |
 | `test_family_deadline_sits_above_mobile_keyboard_overlay` | Användaren öppnar en befintlig familjeuppgift, ser ansvariga i två kolumner och fokuserar deadlinefältet i mobilstorlek där Androids tangentbord kan överlappa appens nedre del. | Deadlinefältet måste redan ligga ovanför tangentbordets förväntade överkant och får inte vara beroende av att Flutter ändrar viewportens höjd. |
 | `test_family_task_can_be_created_and_edited` | Användaren ansluter Familj, skapar en uppgift med deadline, ser auditinformation och fortsätter genom redigering, flytt, radering, slutförande och Snabblistan. | Hela skrivflödet och dess tillgängliga mobilkontroller måste fungera tillsammans. |
 | `test_boot_has_no_console_errors` | Appen öppnas och fungerar utan fel under starten. | Dolda startfel kan annars ge tom sida eller trasiga funktioner senare. |

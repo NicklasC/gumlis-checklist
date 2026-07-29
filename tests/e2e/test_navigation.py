@@ -161,6 +161,18 @@ class NavigationTests(BrowserTestCase):
         )
         self.page.wait_for_timeout(500)
 
+    def open_family_create_editor(self, title):
+        quick_field = self.page.get_by_role(
+            "textbox", name="Skriv något att göra..."
+        )
+        quick_field.fill(title)
+        self.page.get_by_role(
+            "button", name="+ Familjeuppgift", exact=True
+        ).click()
+        editor_title = self.page.get_by_role("textbox", name="Uppgift")
+        editor_title.wait_for(state="visible", timeout=10_000)
+        self.assertEqual(editor_title.input_value(), title)
+
     def test_app_title_is_visible(self):
         self.assertTrue(self.page.get_by_text("Gumli", exact=True).is_visible())
 
@@ -367,8 +379,7 @@ class NavigationTests(BrowserTestCase):
         self.install_family_task_bridge()
         self.connect_family_task_bridge()
 
-        self.page.get_by_role("button", name="Ny familjeuppgift", exact=True).click()
-        self.page.get_by_role("textbox", name="Uppgift").fill("GUI-ansvarig")
+        self.open_family_create_editor("GUI-ansvarig")
         self.page.get_by_role("radio", name="Ida", exact=True).click()
         self.page.get_by_role("button", name="Skapa uppgift", exact=True).click()
         self.page.get_by_text("Uppgiften skapad", exact=True).wait_for(
@@ -400,6 +411,41 @@ class NavigationTests(BrowserTestCase):
         updated_task.wait_for(state="visible", timeout=10_000)
         self.assertIn("Ansvarig: Thor", updated_task.inner_text())
         self.assertNotIn("Ansvarig: Ida", updated_task.inner_text())
+
+    def test_family_quick_add_prefills_editor_and_clears_after_create(self):
+        self.install_family_task_bridge()
+        self.connect_family_task_bridge()
+
+        enter_field = self.page.get_by_role(
+            "textbox", name="Skriv något att göra..."
+        )
+        enter_field.fill("GUI-enter")
+        enter_field.press("Enter")
+        editor_title = self.page.get_by_role("textbox", name="Uppgift")
+        editor_title.wait_for(state="visible", timeout=10_000)
+        self.assertEqual(editor_title.input_value(), "GUI-enter")
+        self.page.get_by_role("button", name="Avbryt", exact=True).click()
+        self.page.wait_for_timeout(300)
+
+        remaining_fields = self.page.get_by_role("textbox")
+        self.assertEqual(remaining_fields.count(), 1)
+        quick_field = remaining_fields.first
+        self.assertEqual(quick_field.input_value(), "")
+        quick_field.fill("GUI-snabbfält")
+        self.page.get_by_role(
+            "button", name="+ Familjeuppgift", exact=True
+        ).click()
+        editor_title = self.page.get_by_role("textbox", name="Uppgift")
+        editor_title.wait_for(state="visible", timeout=10_000)
+        self.assertEqual(editor_title.input_value(), "GUI-snabbfält")
+        self.page.get_by_role("button", name="Skapa uppgift", exact=True).click()
+        self.page.get_by_text("Uppgiften skapad", exact=True).wait_for(
+            state="visible", timeout=10_000
+        )
+        remaining_fields = self.page.get_by_role("textbox")
+        self.assertEqual(remaining_fields.count(), 1)
+        quick_field = remaining_fields.first
+        self.assertEqual(quick_field.input_value(), "")
 
     def test_family_deadline_sits_above_mobile_keyboard_overlay(self):
         self.install_family_polish_bridge()
@@ -436,11 +482,7 @@ class NavigationTests(BrowserTestCase):
         self.install_family_task_bridge()
         self.connect_family_task_bridge()
 
-        self.page.get_by_role("button", name="Ny familjeuppgift", exact=True).click()
-        self.page.get_by_role("textbox", name="Uppgift", exact=False).wait_for(
-            state="visible", timeout=10_000
-        )
-        self.page.get_by_role("textbox", name="Uppgift").fill("GUI-familjeuppgift")
+        self.open_family_create_editor("GUI-familjeuppgift")
         self.page.get_by_role("textbox", name="Deadline (valfritt)").fill("2026-07-28")
         self.page.wait_for_timeout(300)
         self.page.get_by_role("button", name="Skapa uppgift", exact=True).click()
@@ -509,11 +551,7 @@ class NavigationTests(BrowserTestCase):
             state="visible", timeout=10_000
         )
         self.page.wait_for_timeout(500)
-        self.page.get_by_role("button", name="Ny familjeuppgift", exact=True).click()
-        self.page.get_by_role("textbox", name="Uppgift", exact=False).wait_for(
-            state="visible", timeout=10_000
-        )
-        self.page.get_by_role("textbox", name="Uppgift").fill("GUI-slutförande")
+        self.open_family_create_editor("GUI-slutförande")
         self.page.wait_for_timeout(300)
         self.page.get_by_role("button", name="Skapa uppgift", exact=True).click()
         self.page.get_by_text("Uppgiften skapad", exact=True).wait_for(
@@ -584,8 +622,15 @@ class NavigationTests(BrowserTestCase):
             state="visible", timeout=10_000
         )
 
-        self.page.get_by_role("button", name="Ny familjeuppgift", exact=True).click()
-        self.page.wait_for_timeout(300)
+        quick_field = self.page.get_by_role(
+            "textbox", name="Skriv något att göra..."
+        )
+        self.assertFalse(quick_field.is_enabled())
+        self.assertFalse(
+            self.page.get_by_role(
+                "button", name="+ Familjeuppgift", exact=True
+            ).is_enabled()
+        )
         self.assertEqual(self.page.get_by_role("textbox", name="Uppgift").count(), 0)
         self.assertEqual(
             self.page.get_by_role(
@@ -606,10 +651,7 @@ class NavigationTests(BrowserTestCase):
             state="visible", timeout=10_000
         )
         self.page.wait_for_timeout(500)
-        self.page.get_by_role("button", name="Ny familjeuppgift", exact=True).click()
-        self.page.get_by_role("textbox", name="Uppgift", exact=False).wait_for(
-            state="visible", timeout=10_000
-        )
+        self.open_family_create_editor("GUI-återansluten")
         self.page.get_by_role("button", name="Avbryt", exact=True).click()
 
     def test_family_fifty_tasks_fit_mobile_target_widths(self):
@@ -633,6 +675,6 @@ class NavigationTests(BrowserTestCase):
                 )
                 self.assertTrue(
                     self.page.get_by_role(
-                        "button", name="Ny familjeuppgift", exact=True
+                        "button", name="+ Familjeuppgift", exact=True
                     ).is_visible()
                 )
