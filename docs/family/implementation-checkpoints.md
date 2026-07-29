@@ -214,6 +214,14 @@ Apps Script-operation eller distribution krävdes; befintlig version 10 och
       enligt den överenskomna familjeteststrategin.
 - [ ] Bekräfta på Nicklas Androidtelefon att deadlinefältet är synligt när
       tangentbordet öppnas i den kompakta editorn.
+- [x] Familjs Aktuell-vy använder nu en bottenplacerad Quick Add-panel i samma
+      formspråk som Privat/Jobb. Enter och `+ Familjeuppgift` förifyller den
+      detaljerade editorn; lyckad skapning tömmer snabbfältet och offline låser
+      både fält och knapp. Tjugonio riktade komponenttester och sju riktade
+      GUI-tester är godkända. Pages-commit `d604579` och build
+      `8289072e69a0f314` är verifierade live utan cache.
+- [ ] Bekräfta Quick Add-flödet på Nicklas Androidtelefon: skriv titel, öppna
+      editorn, välj ansvarig/deadline och skapa uppgiften.
 - [ ] Bekräfta att anslutna telefoner har hämtat den nya PWA:n och stäng därefter
       den gamla sårbara Apps Script-deploymenten.
 
