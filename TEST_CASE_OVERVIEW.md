@@ -14,11 +14,11 @@ Målet med dokumentet är att en människa snabbt och enkelt ska få en övergri
 
 | Område | Antal | Innehåll |
 |---|---:|---|
-| Enhetstester | 100 | Datamodeller, lagring, migrering, historikregler och familjeanslutning |
-| Komponenttester | 145 | Vyernas och komponenternas logik utan webbläsare |
+| Enhetstester | 102 | Datamodeller, lagring, migrering, historikregler och familjeanslutning |
+| Komponenttester | 146 | Vyernas och komponenternas logik utan webbläsare |
 | PWA- och distributionstester | 106 | Manifest, Apps Script-API, familjebrygga, byggfiler, sidmallar och de två repona |
-| GUI/E2E-tester | 86 | Verkliga användarflöden och säkerhetsangrepp i Chromium |
-| **Totalt** | **437** | |
+| GUI/E2E-tester | 87 | Verkliga användarflöden och säkerhetsangrepp i Chromium |
+| **Totalt** | **441** | |
 
 GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den byggda appen och deploy-repot finns lokalt; annars markeras de som överhoppade.
 
@@ -126,9 +126,11 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 |---|---|
 | `test_connect_verifies_and_persists_server_derived_member` | En ny enhetsnyckel sparas först efter att servern har godkänt den och returnerat rätt medlem. |
 | `test_connect_accepts_stable_response_envelope` | Anslutning kan läsa API:ts stabila svarskuvert. |
+| `test_connect_retries_ping_once_after_timeout` | En ofarlig anslutningskontroll gör automatiskt ett enda nytt försök efter timeout och sparas först när servern svarar. |
 | `test_wrong_key_is_not_persisted` | En felaktig enhetsnyckel nekas och sparas aldrig på enheten. |
 | `test_connect_removes_mobile_clipboard_artifacts` | Osynliga tecken, radbrytningar och omgivande citattecken från mobilens urklipp tas bort före verifiering. |
 | `test_resume_reuses_persisted_connection` | En tidigare godkänd anslutning verifieras på nytt och återanvänds vid nästa öppning. |
+| `test_resume_keeps_verified_device_during_temporary_outage` | En tidigare verifierad enhet behåller sin lokala anslutning vid ett tillfälligt timeoutfel så att sparad familjedata kan öppnas skrivskyddat. |
 | `test_bootstrap_parses_tasks_members_and_favorites` | Bootstrap validerar uppgifter, medlemmar, favoriter och servertid. |
 | `test_bootstrap_persists_valid_cache` | Ett giltigt bootstrap-svar sparas lokalt för nästa öppning och offlinevisning. |
 | `test_bootstrap_succeeds_when_cache_write_fails` | En lyckad nätverkssynkning visas även om den lokala cache-skrivningen misslyckas. |
@@ -214,7 +216,9 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_device_key_field_uses_visible_dark_theme_colors` | Enhetsnyckelns text, etikett och markör har uttryckliga synliga färger i det mörka temat. |
 | `test_successful_connection_shows_server_member` | En godkänd nyckel visar den medlem som servern har identifierat. |
 | `test_wrong_key_shows_clear_error` | En felaktig nyckel ger ett tydligt svenskt felmeddelande. |
+| `test_repeated_timeout_shows_specific_error_and_keeps_entered_key` | Två misslyckade anslutningsförsök ger ett specifikt timeoutmeddelande och behåller den inskrivna nyckeln för ett nytt försök. |
 | `test_resume_shows_persisted_member` | En sparad anslutning återställs automatiskt när Familj öppnas igen. |
+| `test_revoked_key_clears_local_family_state_and_shows_exact_error` | En återkallad sparad nyckel rensar den lokala familjeanslutningen och visar serverns tydliga fel. |
 | `test_disconnect_returns_to_connection_form` | Koppla från återgår till formuläret för enhetsnyckel. |
 
 ### Familjens Aktuell-lista — `tests/components/test_family_current_view.py`
@@ -519,6 +523,7 @@ GUI-testerna körs bara när `GUMLI_RUN_E2E=1`. Vissa PWA-tester kräver att den
 | `test_switches_to_work_mode` | Användaren byter till Jobb och ser jobbets checklista. | Privat och jobb måste kunna hanteras separat. |
 | `test_switches_back_to_private_mode` | Användaren byter från Jobb tillbaka till Privat och ser den privata checklistan. | Växlingen måste fungera åt båda hållen utan att fastna i fel läge. |
 | `test_switches_directly_from_family_back_to_private` | Användaren öppnar Familj och trycker sedan direkt på Privat utan att använda nedersta navigationen. | Familjens anslutningsvy får inte ligga kvar när huvudläget byts. |
+| `test_family_connection_recovers_when_first_ping_times_out` | Användaren ansluter en ny enhet samtidigt som den första Google-kontrollen tar för lång tid, men kommer vidare efter appens automatiska omförsök. | Ett tillfälligt Apps Script-stopp ska inte tvinga familjemedlemmen att skriva in nyckeln eller trycka igen. |
 | `test_all_pages_remain_reachable_after_successful_family_response` | Appen tar emot en lyckad familjerespons, visar en försenad Aktuell-uppgift, filtrerar Mina och går därefter via Privat och Jobb till Checklista, Snabblistan, Historik och Senare. | Familjesvaret får inte låsa gränssnittet; Aktuell-lista, deadline, filter och all befintlig navigation ska fungera. |
 | `test_family_device_key_can_be_entered_and_reveal_control_used` | Användaren skriver en enhetsnyckel och använder fältets ögonknapp utan att nyckeln ändras. | Nyckeln måste gå att mata in och kontrollera visuellt före anslutning. |
 | `test_family_assignee_can_be_set_on_create_and_changed_afterwards` | Användaren skapar en familjeuppgift med Ida som ansvarig, öppnar den igen och ändrar ansvarig till Thor. | Ansvarigvalet måste nå serveranropet och fungera både vid skapande och efterhandsredigering. |

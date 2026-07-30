@@ -73,6 +73,31 @@ class FamilyRepositoryTests(unittest.IsolatedAsyncioTestCase):
         repo, _, _ = self.make_repository(response)
         self.assertEqual((await repo.connect("n" * 48)).member, "Nicklas")
 
+    async def test_connect_retries_ping_once_after_timeout(self):
+        token = "j" * 48
+        storage = FakeConnectionStorage()
+        requests = []
+        responses = [
+            {"ok": False, "error": "TIMEOUT"},
+            {"ok": True, "data": {"member": "Johanna"}},
+        ]
+
+        async def transport(payload):
+            requests.append(payload)
+            return responses.pop(0)
+
+        repo = FamilyRepository(transport, storage.load, storage.save, storage.delete)
+
+        self.assertEqual((await repo.connect(token)).member, "Johanna")
+        self.assertEqual(
+            requests,
+            [
+                {"action": "ping", "deviceToken": token},
+                {"action": "ping", "deviceToken": token},
+            ],
+        )
+        self.assertEqual(json.loads(storage.value)["member"], "Johanna")
+
     async def test_wrong_key_is_not_persisted(self):
         repo, storage, _ = self.make_repository({"ok": False, "error": "UNAUTHORIZED"})
         with self.assertRaises(PermissionError):
@@ -94,6 +119,20 @@ class FamilyRepositoryTests(unittest.IsolatedAsyncioTestCase):
         connection = await repo.resume()
         self.assertEqual(connection.member, "Ida")
         self.assertEqual(requests[0]["deviceToken"], token)
+
+    async def test_resume_keeps_verified_device_during_temporary_outage(self):
+        token = "j" * 48
+        stored = json.dumps({"deviceToken": token, "member": "Johanna"})
+        repo, storage, requests = self.make_repository(
+            {"ok": False, "error": "TIMEOUT"},
+            stored,
+        )
+
+        connection = await repo.resume()
+
+        self.assertEqual(connection.member, "Johanna")
+        self.assertEqual(len(requests), 2)
+        self.assertEqual(json.loads(storage.value)["deviceToken"], token)
 
     async def test_bootstrap_parses_tasks_members_and_favorites(self):
         token = "n" * 48

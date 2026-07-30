@@ -73,8 +73,7 @@ class FamilyRepository:
         token = self._normalize_device_token(device_token)
         if len(token) < 32:
             raise ValueError("Kontrollera enhetsnyckeln och försök igen")
-        response = await self._transport({"action": "ping", "deviceToken": token})
-        connection = self._connection_from_response(token, response)
+        connection = await self._verify_connection(token)
         await self._save(connection)
         return connection
 
@@ -94,13 +93,28 @@ class FamilyRepository:
         if connection is None:
             return None
 
-        response = await self._transport(
-            {"action": "ping", "deviceToken": connection.device_token}
-        )
-        verified = self._connection_from_response(connection.device_token, response)
+        try:
+            verified = await self._verify_connection(connection.device_token)
+        except (TimeoutError, ConnectionError):
+            # A previously verified device may still open its locally cached
+            # family data read-only while Google is temporarily unavailable.
+            return connection
         if verified.member != connection.member:
             await self._save(verified)
         return verified
+
+    async def _verify_connection(self, device_token: str) -> FamilyConnection:
+        """Verify one harmless ping, with one bounded retry after a timeout."""
+        for attempt in range(2):
+            try:
+                response = await self._transport(
+                    {"action": "ping", "deviceToken": device_token}
+                )
+                return self._connection_from_response(device_token, response)
+            except TimeoutError:
+                if attempt == 1:
+                    raise
+        raise RuntimeError("Familjeanslutningen kunde inte verifieras")
 
     async def bootstrap(self) -> FamilyBootstrap:
         connection = await self._stored_connection()

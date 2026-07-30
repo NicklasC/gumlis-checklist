@@ -102,6 +102,8 @@ class FamilyConnectionView(ft.Container):
             await self._notify_connected(connection.member)
         except (ValueError, PermissionError) as error:
             self._show_error(str(error))
+        except TimeoutError as error:
+            self._show_error(str(error) or "Familjen är upptagen – försök igen")
         except Exception:
             self._show_error("Familjen kunde inte nås. Försök igen.")
 

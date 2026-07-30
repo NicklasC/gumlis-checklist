@@ -255,6 +255,58 @@ class NavigationTests(BrowserTestCase):
             0,
         )
 
+    def test_family_connection_recovers_when_first_ping_times_out(self):
+        self.page.evaluate(
+            """() => {
+                let pingCount = 0;
+                window.gumliFamilyBridge.forward = (message, worker) => {
+                    const action = message.payload?.action;
+                    pingCount += action === 'ping' ? 1 : 0;
+                    const firstPingTimedOut = action === 'ping' && pingCount === 1;
+                    const data = action === 'bootstrap'
+                        ? {
+                            tasks: [],
+                            members: [{name: 'Johanna', active: true, sort_order: 4}],
+                            favorites: [],
+                            invalidRows: []
+                        }
+                        : {member: 'Johanna'};
+                    worker.postMessage({
+                        type: 'gumli-family-response',
+                        requestId: message.requestId,
+                        response: firstPingTimedOut
+                            ? {
+                                ok: false,
+                                data: null,
+                                error: 'TIMEOUT',
+                                server_time: null,
+                                api_version: 'family-test'
+                            }
+                            : {
+                                ok: true,
+                                data,
+                                error: null,
+                                server_time: '2026-07-30T19:00:00+00:00',
+                                api_version: 'family-test'
+                            }
+                    });
+                };
+            }"""
+        )
+
+        self.set_mode("Familj")
+        self.page.get_by_role("textbox", name="Enhetsnyckel").fill("j" * 48)
+        self.page.get_by_role(
+            "button", name="Anslut den här enheten", exact=True
+        ).click()
+
+        self.page.get_by_text("Ansluten som Johanna", exact=True).wait_for(
+            state="visible", timeout=10_000
+        )
+        self.page.get_by_text("Synkad nyss", exact=True).wait_for(
+            state="visible", timeout=10_000
+        )
+
     def test_all_pages_remain_reachable_after_successful_family_response(self):
         overdue_deadline = (date.today() - timedelta(days=2)).isoformat()
         self.page.evaluate(

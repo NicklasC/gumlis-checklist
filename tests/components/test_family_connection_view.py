@@ -40,6 +40,22 @@ class FamilyConnectionViewTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(view.status_text.value, "Enhetsnyckeln känns inte igen")
         self.assertTrue(view.token_field.visible)
 
+    async def test_repeated_timeout_shows_specific_error_and_keeps_entered_key(self):
+        view, repository = self.make_view()
+        repository.connect.side_effect = TimeoutError(
+            "Familjen är upptagen – försök igen"
+        )
+        view.token_field.value = "j" * 48
+
+        await view._connect()
+
+        self.assertEqual(
+            view.status_text.value,
+            "Familjen är upptagen – försök igen",
+        )
+        self.assertEqual(view.token_field.value, "j" * 48)
+        self.assertTrue(view.token_field.visible)
+
     async def test_resume_shows_persisted_member(self):
         view, repository = self.make_view()
         repository.resume.return_value = FamilyConnection("i" * 48, "Ida")
